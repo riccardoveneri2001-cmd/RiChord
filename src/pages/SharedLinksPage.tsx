@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Link2, Trash2, Clock } from 'lucide-react'
+import { IconLink, IconCopy, IconTrash, IconClock } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/useAuthStore'
-import { PageWrapper, PageHeader } from '../components/layout/PageWrapper'
 import { ConfirmModal } from '../components/ui/Modal'
-import { Skeleton } from '../components/ui/Skeleton'
+import { Logo } from '../components/layout/Logo'
 import toast from 'react-hot-toast'
 
 interface ShareLink {
@@ -18,8 +17,8 @@ interface ShareLink {
 
 export function SharedLinksPage() {
   const user = useAuthStore((s) => s.user)
-  const [links, setLinks] = useState<ShareLink[]>([])
-  const [loading, setLoading] = useState(true)
+  const [links,    setLinks]    = useState<ShareLink[]>([])
+  const [loading,  setLoading]  = useState(true)
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -35,101 +34,166 @@ export function SharedLinksPage() {
       })
   }, [user])
 
-  const deleteLink = async (id: string) => {
+  async function deleteLink(id: string) {
     await supabase.from('share_links').delete().eq('id', id)
     setLinks((prev) => prev.filter((l) => l.id !== id))
     toast.success('Link eliminato')
   }
 
-  const copyLink = async (token: string) => {
+  async function copyLink(token: string) {
     await navigator.clipboard.writeText(`${window.location.origin}/share/${token}`)
-    toast.success('Link copiato!')
+    toast.success('Link copiato')
   }
 
-  const isExpired = (link: ShareLink) =>
-    link.expires_at ? new Date(link.expires_at) < new Date() : false
+  function isExpired(link: ShareLink) {
+    return link.expires_at ? new Date(link.expires_at) < new Date() : false
+  }
+
+  function formatExpiry(link: ShareLink) {
+    if (!link.expires_at) return 'Nessuna scadenza'
+    const d = new Date(link.expires_at)
+    return (isExpired(link) ? 'Scaduto il ' : 'Scade il ') +
+      d.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
 
   return (
-    <PageWrapper>
-      <PageHeader title="Link condivisi" subtitle="Gestisci i link che hai generato" />
+    <div style={{ paddingBottom: 100 }}>
 
+      {/* Topbar */}
+      <div style={{
+        padding: '12px 16px 10px',
+        background: '#F5F4F1',
+        borderBottom: '0.5px solid #E0DED8',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <Logo size="sm" />
+        {!loading && (
+          <span style={{ fontSize: 13, color: '#8A94A6' }}>
+            {links.length} {links.length === 1 ? 'link' : 'link'}
+          </span>
+        )}
+      </div>
+
+      {/* Content */}
       {loading ? (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16" />)}
+        <div style={{ padding: '16px 16px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {[1, 2, 3].map((i) => (
+            <div key={i} style={{ height: 80, borderRadius: 12, background: '#EEECE8' }} />
+          ))}
         </div>
       ) : links.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <div className="w-20 h-20 bg-gray-100 dark:bg-slate-700 rounded-3xl flex items-center justify-center mb-5">
-            <Link2 size={32} className="text-secondary" />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '80px 32px', textAlign: 'center' }}>
+          <div style={{
+            width: 72, height: 72, borderRadius: 20,
+            background: '#E0F0FA',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: 20,
+          }}>
+            <IconLink size={32} style={{ color: '#2176AE' }} />
           </div>
-          <h3 className="text-lg font-display text-primary-light dark:text-primary-dark mb-2">Nessun link condiviso</h3>
-          <p className="text-sm text-secondary font-jakarta max-w-xs">
+          <p style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 600, color: '#1C2333' }}>
+            Nessun link condiviso
+          </p>
+          <p style={{ margin: 0, fontSize: 14, color: '#8A94A6', lineHeight: 1.5, maxWidth: 260 }}>
             I link che generi dalla visualizzazione di un brano o setlist appariranno qui.
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {links.map((link) => (
-            <div
-              key={link.id}
-              className={`bg-white dark:bg-night-surface rounded-2xl border p-4 flex items-start gap-3 ${
-                isExpired(link)
-                  ? 'border-red-200 dark:border-red-900/30 opacity-60'
-                  : 'border-border-light dark:border-border-dark'
-              }`}
-            >
-              <div className="w-9 h-9 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center shrink-0">
-                <Link2 size={15} className="text-blue-accent" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-jakarta font-medium text-primary-light dark:text-primary-dark capitalize">
-                    {link.type === 'song' ? 'Brano' : 'Setlist'}
-                  </span>
-                  {isExpired(link) && (
-                    <span className="text-xs text-red-500 font-jakarta">Scaduto</span>
+        <div style={{ padding: '12px 16px 0', display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {links.map((link) => {
+            const expired = isExpired(link)
+            return (
+              <div
+                key={link.id}
+                style={{
+                  background: '#FFFFFF',
+                  borderRadius: 12,
+                  border: `0.5px solid ${expired ? '#FDE8E8' : '#E0DED8'}`,
+                  padding: '12px 14px',
+                  display: 'flex', alignItems: 'flex-start', gap: 12,
+                  opacity: expired ? 0.7 : 1,
+                }}
+              >
+                {/* Icon */}
+                <div style={{
+                  width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+                  background: expired ? '#FDE8E8' : '#E0F0FA',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <IconLink size={16} style={{ color: expired ? '#C0392B' : '#2176AE' }} />
+                </div>
+
+                {/* Info */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#1C2333' }}>
+                      {link.type === 'song' ? 'Brano' : 'Setlist'}
+                    </span>
+                    {expired && (
+                      <span style={{
+                        fontSize: 11, fontWeight: 600, color: '#C0392B',
+                        background: '#FDE8E8', borderRadius: 20, padding: '1px 7px',
+                      }}>
+                        Scaduto
+                      </span>
+                    )}
+                  </div>
+                  <p style={{
+                    margin: '0 0 4px', fontSize: 12, color: '#8A94A6',
+                    fontFamily: 'monospace',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  }}>
+                    {window.location.origin}/share/{link.token}
+                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <IconClock size={11} style={{ color: '#8A94A6', flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: '#8A94A6' }}>{formatExpiry(link)}</span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                  {!expired && (
+                    <button
+                      onClick={() => copyLink(link.token)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 5,
+                        padding: '6px 11px', borderRadius: 8, border: 'none',
+                        background: '#E0F0FA', color: '#2176AE',
+                        fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                      }}
+                    >
+                      <IconCopy size={13} />
+                      Copia
+                    </button>
                   )}
-                </div>
-                <p className="text-xs font-mono text-secondary truncate mt-0.5">{window.location.origin}/share/{link.token}</p>
-                <div className="flex items-center gap-1 mt-1">
-                  <Clock size={11} className="text-secondary" />
-                  <span className="text-xs text-secondary font-jakarta">
-                    {link.expires_at
-                      ? `Scade: ${new Date(link.expires_at).toLocaleDateString('it-IT')}`
-                      : 'Nessuna scadenza'}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                {!isExpired(link) && (
                   <button
-                    onClick={() => copyLink(link.token)}
-                    className="px-2.5 py-1.5 text-xs font-jakarta text-blue-accent bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                    onClick={() => setDeleteId(link.id)}
+                    style={{
+                      width: 32, height: 32, borderRadius: 8, border: 'none',
+                      background: 'none', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                    aria-label="Elimina"
                   >
-                    Copia
+                    <IconTrash size={15} style={{ color: '#C8CDD8' }} />
                   </button>
-                )}
-                <button
-                  onClick={() => setDeleteId(link.id)}
-                  className="p-1.5 text-secondary hover:text-red-500 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10"
-                >
-                  <Trash2 size={14} />
-                </button>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
       <ConfirmModal
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
-        onConfirm={() => deleteId && deleteLink(deleteId)}
+        onConfirm={() => { if (deleteId) deleteLink(deleteId) }}
         title="Elimina link"
-        message="Eliminando questo link, chi lo ha ricevuto non potrà più visualizzare il contenuto."
+        message="Chi ha ricevuto questo link non potrà più visualizzare il contenuto."
         confirmLabel="Elimina"
         danger
       />
-    </PageWrapper>
+    </div>
   )
 }

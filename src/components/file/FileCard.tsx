@@ -1,4 +1,4 @@
-import { FileText, ExternalLink } from 'lucide-react'
+import { IconFileText, IconExternalLink } from '@tabler/icons-react'
 import type { Song } from '../../store/useLibraryStore'
 
 interface FileCardProps {
@@ -6,42 +6,60 @@ interface FileCardProps {
 }
 
 export function FileCard({ song }: FileCardProps) {
-  if (!song.file_url) return null
+  if (!song.file_url) return (
+    <div style={{ padding: '32px 16px', textAlign: 'center' }}>
+      <p style={{ fontSize: 14, color: '#8A94A6' }}>Nessun file allegato.</p>
+    </div>
+  )
 
   const isImage = song.type === 'image'
 
   return (
-    <div className="bg-white dark:bg-night-surface rounded-2xl border border-border-light dark:border-border-dark overflow-hidden">
+    <div style={{ background: '#FFFFFF', borderRadius: 12, border: '0.5px solid #E0DED8', overflow: 'hidden' }}>
       {isImage ? (
-        <div className="relative">
-          <img
-            src={song.file_url}
-            alt={song.title}
-            className="w-full object-contain max-h-[70vh]"
-          />
-        </div>
+        <img
+          src={song.file_url}
+          alt={song.title}
+          style={{ width: '100%', objectFit: 'contain', maxHeight: '70vh', display: 'block' }}
+        />
       ) : (
-        <div className="p-6 flex flex-col items-center gap-4 text-center">
-          <div className="w-16 h-16 bg-orange-50 dark:bg-orange-900/20 rounded-2xl flex items-center justify-center">
-            <FileText size={28} className="text-orange-500" />
+        <div style={{ padding: '28px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, textAlign: 'center' }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: 16,
+            background: '#FDE8E8',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <IconFileText size={30} style={{ color: '#C0392B' }} />
           </div>
+
           <div>
-            <p className="font-semibold font-jakarta text-primary-light dark:text-primary-dark">{song.title}</p>
-            <p className="text-sm text-secondary font-jakarta mt-1">Documento PDF</p>
+            <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#1C2333' }}>{song.title}</p>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: '#8A94A6' }}>Documento PDF</p>
           </div>
+
           <a
             href={song.file_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2 bg-blue-accent text-white px-4 py-2.5 rounded-xl text-sm font-jakarta font-medium hover:bg-blue-500 transition-colors"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '11px 20px', borderRadius: 10,
+              background: '#2176AE', color: '#FFFFFF',
+              fontSize: 14, fontWeight: 600, textDecoration: 'none',
+              fontFamily: 'inherit',
+            }}
           >
-            <ExternalLink size={14} />
+            <IconExternalLink size={15} />
             Apri PDF
           </a>
+
           <iframe
             src={song.file_url}
-            className="w-full h-[60vh] rounded-xl border border-border-light dark:border-border-dark"
             title={song.title}
+            style={{
+              width: '100%', height: '60vh',
+              border: '0.5px solid #E0DED8', borderRadius: 10,
+            }}
           />
         </div>
       )}

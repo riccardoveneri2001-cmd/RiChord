@@ -1,28 +1,36 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { IconMinus, IconPlus, IconRotate, IconPlayerPlay } from '@tabler/icons-react'
 import { supabase } from '../lib/supabase'
 import { ChordProRenderer } from '../components/song/ChordProRenderer'
 import { useTranspose } from '../hooks/useTranspose'
 import { PerformingMode } from '../components/song/PerformingMode'
 import { Logo } from '../components/layout/Logo'
-import { ThemeToggle } from '../components/ui/ThemeToggle'
-import { Button } from '../components/ui/Button'
-import { Tag } from '../components/ui/Badge'
-import { Minus, Plus, Maximize2, RotateCcw } from 'lucide-react'
 import type { Song } from '../store/useLibraryStore'
 
-type SharedData = {
-  type: 'song' | 'setlist'
-  song?: Song
-  setlist?: { name: string; songs: Song[] }
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+type SharedData =
+  | { type: 'song'; song: Song }
+  | { type: 'setlist'; setlist: { name: string; songs: Song[] } }
+
+// ── Key display helpers (same as SongViewPage) ────────────────────────────────
+
+const DISPLAY_KEYS = ['Do', 'Do#', 'Re', 'Re#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si']
+const CHROMATIC: Record<string, number> = {
+  Do: 0, 'Do#': 1, Re: 2, 'Re#': 3, Mi: 4, Fa: 5,
+  'Fa#': 6, Sol: 7, 'Sol#': 8, La: 9, 'La#': 10, Si: 11,
+  Reb: 1, Mib: 3, Solb: 6, Lab: 8, Sib: 10,
 }
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export function SharedPage() {
   const { token } = useParams<{ token: string }>()
-  const navigate = useNavigate()
-  const [data, setData] = useState<SharedData | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const navigate   = useNavigate()
+  const [data,      setData]      = useState<SharedData | null>(null)
+  const [error,     setError]     = useState<string | null>(null)
+  const [loading,   setLoading]   = useState(true)
   const [performing, setPerforming] = useState(false)
 
   useEffect(() => {
@@ -35,8 +43,7 @@ export function SharedPage() {
         .eq('token', token)
         .single()
 
-      if (linkErr || !link) { setError('Link non trovato o scaduto'); setLoading(false); return }
-
+      if (linkErr || !link) { setError('Link non trovato'); setLoading(false); return }
       if (link.expires_at && new Date(link.expires_at) < new Date()) {
         setError('Questo link è scaduto'); setLoading(false); return
       }
@@ -51,125 +58,208 @@ export function SharedPage() {
         setData({ type: 'song', song: { ...song, notes: null, user_id: '', created_at: '', updated_at: '' } as Song })
       } else {
         const { data: sl } = await supabase
-          .from('setlists')
-          .select('name')
-          .eq('id', link.resource_id)
-          .single()
+          .from('setlists').select('name').eq('id', link.resource_id).single()
         const { data: slSongs } = await supabase
-          .from('setlist_songs')
-          .select('song_id, position')
-          .eq('setlist_id', link.resource_id)
-          .order('position')
-
+          .from('setlist_songs').select('song_id, position')
+          .eq('setlist_id', link.resource_id).order('position')
         const songIds = (slSongs ?? []).map((s: { song_id: string }) => s.song_id)
         const { data: songData } = await supabase
-          .from('songs')
-          .select('id, title, artist, content, key, tags, type, file_url')
+          .from('songs').select('id, title, artist, content, key, tags, type, file_url')
           .in('id', songIds)
-
-        const orderedSongs = songIds
+        const ordered = songIds
           .map((sid: string) => songData?.find((s: { id: string }) => s.id === sid))
           .filter(Boolean) as Song[]
-
-        setData({ type: 'setlist', setlist: { name: sl?.name ?? '', songs: orderedSongs } })
+        setData({ type: 'setlist', setlist: { name: sl?.name ?? '', songs: ordered } })
       }
       setLoading(false)
     }
     load()
   }, [token])
 
-  const song = data?.type === 'song' ? data.song : data?.setlist?.songs[0]
+  const song = data?.type === 'song' ? data.song : undefined
   const { semitones, notation, transposedContent, transpose, reset, toggleNotation } = useTranspose(
     song?.content ?? '',
-    song?.key ?? null
+    song?.key ?? null,
   )
+
+  const currentKey = useMemo(() => {
+    if (!song?.key) return '—'
+    const base = CHROMATIC[song.key]
+    if (base === undefined) return song.key
+    return DISPLAY_KEYS[(base + semitones + 120) % 12]
+  }, [song?.key, semitones])
+
+  // ── Loading ───────────────────────────────────────────────────────────────
 
   if (loading) return (
-    <div className="min-h-screen bg-app-light dark:bg-app-dark flex items-center justify-center">
-      <div className="animate-spin w-8 h-8 border-2 border-blue-accent border-t-transparent rounded-full" />
+    <div style={{ minHeight: '100svh', background: '#F5F4F1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 28, height: 28, border: '2px solid #2176AE', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
     </div>
   )
+
+  // ── Error ─────────────────────────────────────────────────────────────────
 
   if (error) return (
-    <div className="min-h-screen bg-app-light dark:bg-app-dark flex flex-col items-center justify-center p-4 text-center">
-      <Logo size="md" className="mb-6" />
-      <h2 className="text-lg font-display text-primary-light dark:text-primary-dark mb-2">{error}</h2>
-      <p className="text-sm text-secondary font-jakarta mb-6">Il link potrebbe essere scaduto o non valido.</p>
-      <Button onClick={() => navigate('/')}>Vai a RiChord</Button>
+    <div style={{ minHeight: '100svh', background: '#F5F4F1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', textAlign: 'center' }}>
+      <div style={{ marginBottom: 24 }}>
+        <Logo size="lg" />
+      </div>
+      <p style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 600, color: '#1C2333' }}>{error}</p>
+      <p style={{ margin: '0 0 24px', fontSize: 14, color: '#8A94A6' }}>
+        Il link potrebbe essere scaduto o non valido.
+      </p>
+      <button
+        onClick={() => navigate('/login')}
+        style={{ padding: '12px 24px', borderRadius: 12, border: 'none', background: '#2176AE', color: '#FFFFFF', fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+      >
+        Vai a RiChord
+      </button>
     </div>
   )
 
+  // ── Main ──────────────────────────────────────────────────────────────────
+
   return (
-    <div className="min-h-screen bg-app-light dark:bg-app-dark flex flex-col">
+    <div style={{ minHeight: '100svh', background: '#F5F4F1', display: 'flex', flexDirection: 'column' }}>
+
       {/* Header */}
-      <header className="bg-white dark:bg-night-surface border-b border-border-light dark:border-border-dark px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Logo size="sm" />
-          <span className="text-xs bg-blue-50 dark:bg-blue-900/20 text-blue-accent font-jakarta font-medium px-2 py-0.5 rounded-full">
-            Visualizzazione condivisa
-          </span>
-        </div>
-        <ThemeToggle />
+      <header style={{
+        background: '#FFFFFF', borderBottom: '0.5px solid #E0DED8',
+        padding: '10px 16px',
+        display: 'flex', alignItems: 'center', gap: 10,
+      }}>
+        <Logo size="sm" />
+        <span style={{
+          fontSize: 12, fontWeight: 500, color: '#2176AE',
+          background: '#E0F0FA', borderRadius: 20, padding: '3px 10px',
+        }}>
+          Visualizzazione condivisa
+        </span>
       </header>
 
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-6">
+      {/* Main content */}
+      <main style={{ flex: 1, padding: '20px 16px 0', maxWidth: 680, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}>
+
+        {/* ── Song view ────────────────────────────────────────────────── */}
         {data?.type === 'song' && song && (
           <>
-            <div className="mb-4">
-              <h1 className="text-2xl font-display text-primary-light dark:text-primary-dark">{song.title}</h1>
-              {song.artist && <p className="text-secondary font-jakarta text-sm mt-0.5">{song.artist}</p>}
+            {/* Title / artist / tags */}
+            <div style={{ marginBottom: 16 }}>
+              <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 700, color: '#1C2333', letterSpacing: '-0.3px' }}>
+                {song.title}
+              </h1>
+              {song.artist && (
+                <p style={{ margin: '0 0 8px', fontSize: 14, color: '#8A94A6' }}>{song.artist}</p>
+              )}
               {(song.tags ?? []).length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {song.tags.map((t) => <Tag key={t} label={t} />)}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {song.tags.map((t) => (
+                    <span key={t} style={{ fontSize: 12, fontWeight: 500, color: '#2176AE', background: '#E0F0FA', borderRadius: 20, padding: '3px 10px' }}>
+                      {t}
+                    </span>
+                  ))}
                 </div>
               )}
             </div>
 
-            {/* Controls */}
-            <div className="bg-white dark:bg-night-surface rounded-2xl border border-border-light dark:border-border-dark p-4 mb-5 flex flex-wrap gap-4 items-center">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-secondary font-jakarta">Tonalità</span>
-                <button onClick={() => transpose(-1)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-slate-700 text-secondary hover:text-primary-light dark:hover:text-primary-dark transition-colors">
-                  <Minus size={14} />
-                </button>
-                <span className="text-sm font-mono text-blue-accent bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-lg">
-                  {semitones === 0 ? (song.key || '—') : `+${semitones}`}
+            {/* Transposition + controls bar */}
+            <div style={{
+              background: '#FFFFFF', borderRadius: 12,
+              border: '0.5px solid #E0DED8',
+              padding: '10px 14px', marginBottom: 16,
+              display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12,
+            }}>
+              {/* Key */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 500, color: '#8A94A6', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Tonalità
                 </span>
-                <button onClick={() => transpose(1)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-slate-700 text-secondary hover:text-primary-light dark:hover:text-primary-dark transition-colors">
-                  <Plus size={14} />
+                <button onClick={() => transpose(-1)} style={transpBtnStyle} aria-label="Abbassa">
+                  <IconMinus size={14} style={{ color: '#2176AE' }} />
+                </button>
+                <span style={{ fontSize: 15, fontWeight: 700, color: '#1C2333', minWidth: 36, textAlign: 'center', fontFamily: 'monospace' }}>
+                  {currentKey}
+                </span>
+                <button onClick={() => transpose(1)} style={transpBtnStyle} aria-label="Alza">
+                  <IconPlus size={14} style={{ color: '#2176AE' }} />
                 </button>
                 {semitones !== 0 && (
-                  <button onClick={reset} className="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:text-primary-light dark:hover:text-primary-dark transition-colors">
-                    <RotateCcw size={13} />
+                  <button onClick={reset} style={{ ...transpBtnStyle, background: 'none', border: 'none' }} aria-label="Ripristina">
+                    <IconRotate size={14} style={{ color: '#8A94A6' }} />
                   </button>
                 )}
               </div>
-              <button onClick={toggleNotation} className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-slate-700 text-sm font-mono text-secondary hover:text-primary-light dark:hover:text-primary-dark transition-colors">
-                {notation === 'italian' ? 'Do→C' : 'C→Do'}
+
+              {/* Notation */}
+              <button
+                onClick={toggleNotation}
+                style={{
+                  padding: '5px 12px', borderRadius: 8, border: 'none',
+                  background: '#F5F4F1', color: '#8A94A6',
+                  fontSize: 13, fontWeight: 500, fontFamily: 'monospace',
+                  cursor: 'pointer',
+                }}
+              >
+                {notation === 'italian' ? 'Do → C' : 'C → Do'}
               </button>
-              <button onClick={() => setPerforming(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-accent text-white text-sm font-jakarta hover:bg-blue-500 transition-colors ml-auto">
-                <Maximize2 size={14} /> Esegui
+
+              {/* Esegui */}
+              <button
+                onClick={() => setPerforming(true)}
+                style={{
+                  marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '7px 14px', borderRadius: 8, border: 'none',
+                  background: '#2176AE', color: '#FFFFFF',
+                  fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                }}
+              >
+                <IconPlayerPlay size={14} />
+                Esegui
               </button>
             </div>
 
-            <div className="bg-white dark:bg-night-surface rounded-2xl border border-border-light dark:border-border-dark p-5">
-              <ChordProRenderer content={transposedContent} fontSize="md" />
+            {/* Chord renderer */}
+            <div style={{ background: '#FFFFFF', borderRadius: 12, border: '0.5px solid #E0DED8', padding: '16px', marginBottom: 20 }}>
+              <ChordProRenderer content={transposedContent} lyricSize={17} />
             </div>
           </>
         )}
 
+        {/* ── Setlist view ──────────────────────────────────────────────── */}
         {data?.type === 'setlist' && data.setlist && (
           <>
-            <h1 className="text-2xl font-display text-primary-light dark:text-primary-dark mb-5">{data.setlist.name}</h1>
-            <div className="space-y-2">
+            <h1 style={{ margin: '0 0 16px', fontSize: 22, fontWeight: 700, color: '#1C2333', letterSpacing: '-0.3px' }}>
+              {data.setlist.name}
+            </h1>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
               {data.setlist.songs.map((s, i) => (
-                <div key={s.id} className="bg-white dark:bg-night-surface rounded-xl border border-border-light dark:border-border-dark flex items-center gap-3 p-3">
-                  <span className="text-xs text-secondary font-jakarta w-5 text-center">{i + 1}</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold font-jakarta text-primary-light dark:text-primary-dark">{s.title}</p>
-                    {s.artist && <p className="text-xs text-secondary font-jakarta">{s.artist}</p>}
+                <div
+                  key={s.id}
+                  style={{
+                    background: '#FFFFFF', borderRadius: 12,
+                    border: '0.5px solid #E0DED8',
+                    padding: '12px 14px',
+                    display: 'flex', alignItems: 'center', gap: 12,
+                  }}
+                >
+                  <span style={{ fontSize: 13, fontWeight: 600, color: '#8A94A6', minWidth: 20, textAlign: 'center', flexShrink: 0 }}>
+                    {i + 1}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 15, fontWeight: 500, color: '#1C2333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {s.title}
+                    </p>
+                    {s.artist && (
+                      <p style={{ margin: '1px 0 0', fontSize: 13, color: '#8A94A6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {s.artist}
+                      </p>
+                    )}
                   </div>
-                  {s.key && <span className="text-xs font-mono text-blue-accent bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-md">{s.key}</span>}
+                  {s.key && (
+                    <span style={{ fontSize: 12, fontWeight: 600, color: '#2176AE', background: '#E0F0FA', borderRadius: 6, padding: '2px 8px', fontFamily: 'monospace', flexShrink: 0 }}>
+                      {s.key}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
@@ -178,14 +268,42 @@ export function SharedPage() {
       </main>
 
       {/* Footer CTA */}
-      <footer className="bg-white dark:bg-night-surface border-t border-border-light dark:border-border-dark px-4 py-4 text-center">
-        <p className="text-sm text-secondary font-jakarta mb-2">Crea la tua libreria gratuitamente</p>
-        <Button size="sm" onClick={() => navigate('/login')}>Registrati su RiChord</Button>
+      <footer style={{
+        background: '#FFFFFF', borderTop: '0.5px solid #E0DED8',
+        padding: '14px 16px', textAlign: 'center',
+      }}>
+        <p style={{ margin: '0 0 10px', fontSize: 13, color: '#8A94A6' }}>
+          Crea la tua libreria musicale, gratuitamente.
+        </p>
+        <button
+          onClick={() => navigate('/login')}
+          style={{
+            padding: '11px 24px', borderRadius: 12, border: 'none',
+            background: '#2176AE', color: '#FFFFFF',
+            fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+          }}
+        >
+          Registrati su RiChord
+        </button>
       </footer>
 
+      {/* Performing mode */}
       {performing && song && (
-        <PerformingMode song={song} content={transposedContent} onClose={() => setPerforming(false)} />
+        <PerformingMode
+          song={song}
+          content={transposedContent}
+          onClose={() => setPerforming(false)}
+        />
       )}
     </div>
   )
+}
+
+// ── Shared micro-styles ───────────────────────────────────────────────────────
+
+const transpBtnStyle: React.CSSProperties = {
+  width: 30, height: 30, borderRadius: 8,
+  background: '#E0F0FA', border: 'none',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  cursor: 'pointer',
 }

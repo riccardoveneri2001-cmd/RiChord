@@ -1,48 +1,48 @@
 @import "tailwindcss";
 
 @theme {
-  /* Colors */
-  --color-app-dark: #0D1B2E;
-  --color-app-light: #F4F6F9;
-  --color-night-base: #0D1B2E;
-  --color-night-surface: #162438;
-  --color-blue-primary: #1E6FBF;
-  --color-blue-accent: #4DA3FF;
-  --color-surface-light: #FFFFFF;
-  --color-surface-dark: #162438;
-  --color-primary-light: #0D1B2E;
-  --color-primary-dark: #E8EDF5;
-  --color-secondary: #6B8BAF;
-  --color-border-light: #E5EAF2;
-  --color-border-dark: #1E3A5F;
-
-  /* Fonts */
-  --font-display: "DM Serif Display", serif;
-  --font-jakarta: "Plus Jakarta Sans", sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  /* Palette RiChord — Slate & Sky */
+  --color-bg-page:       #F5F4F1;
+  --color-surface:       #FFFFFF;
+  --color-border:        #E0DED8;
+  --color-primary:       #2176AE;
+  --color-primary-light: #E0F0FA;
+  --color-text-1:        #1C2333;
+  --color-text-2:        #8A94A6;
+  --color-text-off:      #C8CDD8;
+  --color-separator:     #F0EEEB;
+  --color-red:           #C0392B;
+  --color-red-bg:        #FDE8E8;
+  --color-green:         #2E7D32;
+  --color-green-bg:      #E8F5E9;
+  --color-violet:        #5B21B6;
+  --color-violet-bg:     #EDE9FE;
+  --color-orange:        #E67E22;
 }
 
-* {
-  -webkit-tap-highlight-color: transparent;
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html {
-  font-family: "Plus Jakarta Sans", sans-serif;
+  font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   height: 100%;
-  /* Prevent iOS Safari overscroll bounce on the whole page */
   overscroll-behavior: none;
+  background-color: #F5F4F1;
+  color: #1C2333;
 }
 
 body {
   margin: 0;
   padding: 0;
-  overscroll-behavior: none;
   height: 100%;
-  /* iOS Safari: use fill-available so 100vh = visible area */
   min-height: -webkit-fill-available;
+  overscroll-behavior: none;
 }
 
 #root {
@@ -50,32 +50,23 @@ body {
   height: 100%;
 }
 
-/* Prevent iOS Safari auto-zoom when focusing inputs (requires font-size >= 16px) */
+/* Prevent iOS auto-zoom on input focus */
 input,
 textarea,
 select {
   font-size: max(16px, 1em);
+  font-family: inherit;
 }
 
-.safe-area-pb {
-  padding-bottom: env(safe-area-inset-bottom, 0);
-}
-
+/* Hide scrollbars globally — overflow still scrollable */
 ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #6B8BAF44;
-  border-radius: 99px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #6B8BAF88;
+  display: none;
 }
 
-.dark ::-webkit-scrollbar-thumb {
-  background: #1E3A5F;
+* {
+  scrollbar-width: none;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }

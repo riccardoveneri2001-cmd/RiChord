@@ -1,107 +1,110 @@
 import { parseChordPro } from '../../lib/chordpro'
-import { cn } from '../../lib/utils'
 
 interface ChordProRendererProps {
   content: string
-  fontSize?: 'sm' | 'md' | 'lg'
-  className?: string
+  lyricSize?: number // default 17, range 12-28
+  theme?: 'light' | 'dark'
 }
 
-const FONT_SIZES = {
-  sm: { chord: 'text-xs', lyric: 'text-sm', line: 'leading-loose' },
-  md: { chord: 'text-sm', lyric: 'text-base', line: 'leading-loose' },
-  lg: { chord: 'text-base', lyric: 'text-lg', line: 'leading-loose' },
-}
-
-export function ChordProRenderer({ content, fontSize = 'md', className }: ChordProRendererProps) {
+export function ChordProRenderer({ content, lyricSize = 17, theme = 'light' }: ChordProRendererProps) {
   const parsed = parseChordPro(content)
-  const fs = FONT_SIZES[fontSize]
+  const chordSize = Math.max(10, lyricSize - 2)
+  const chordColor = theme === 'dark' ? '#93C5FD' : '#2176AE'
+  const lyricColor = theme === 'dark' ? '#FFFFFF' : '#1C2333'
 
   return (
-    <div className={cn('font-mono whitespace-pre-wrap', className)}>
+    <div>
       {parsed.lines.map((line, li) => {
-        const hasChords = line.tokens.some((t) => t.type === 'chord')
-        const isDirective = line.tokens[0]?.type === 'directive'
-        const isSection = line.tokens[0]?.type === 'section'
-        const isComment = line.tokens[0]?.type === 'comment'
+        const firstToken = line.tokens[0]
 
-        if (isDirective) {
-          const d = line.tokens[0]
-          if (d.type !== 'directive') return null
-          if (['title', 't', 'artist', 'subtitle', 'st', 'key'].includes(d.name)) return null
-          return null
-        }
+        // Directives (title, key, etc.) — skip silently
+        if (firstToken?.type === 'directive') return null
 
-        if (isSection) {
-          const s = line.tokens[0]
+        // Section header (Strofa, Ritornello, Bridge…)
+        if (firstToken?.type === 'section') {
+          const s = firstToken
           if (s.type !== 'section') return null
           return (
-            <div key={li} className="mt-4 mb-1">
-              <span className="text-xs font-medium font-jakarta uppercase tracking-wider text-secondary bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded">
+            <div key={li} style={{ marginTop: 20, marginBottom: 10 }}>
+              <span style={{
+                fontSize: 11, fontWeight: 600, color: chordColor,
+                textTransform: 'uppercase', letterSpacing: '0.1em',
+              }}>
                 {s.name}
               </span>
             </div>
           )
         }
 
-        if (isComment) {
-          const c = line.tokens[0]
+        // Comment
+        if (firstToken?.type === 'comment') {
+          const c = firstToken
           if (c.type !== 'comment') return null
           return (
-            <div key={li} className="text-secondary italic text-sm font-jakarta my-1">{c.text}</div>
+            <p key={li} style={{ margin: '4px 0', fontSize: lyricSize - 2, color: theme === 'dark' ? '#94A3B8' : '#8A94A6', fontStyle: 'italic' }}>
+              {c.text}
+            </p>
           )
         }
 
-        if (line.tokens.length === 0 || (line.tokens.length === 1 && line.tokens[0].type === 'lyric' && (line.tokens[0] as { type: 'lyric'; text: string }).text.trim() === '')) {
-          return <div key={li} className="h-3" />
-        }
+        // Empty line
+        const isEmpty =
+          line.tokens.length === 0 ||
+          (line.tokens.length === 1 &&
+            line.tokens[0].type === 'lyric' &&
+            (line.tokens[0] as { type: 'lyric'; text: string }).text.trim() === '')
+        if (isEmpty) return <div key={li} style={{ height: Math.round(lyricSize * 0.9) }} />
 
+        const hasChords = line.tokens.some((t) => t.type === 'chord')
+
+        // Line with no chords — plain lyric
         if (!hasChords) {
-          const text = line.tokens.map((t) => {
-            if (t.type === 'lyric') return t.text
-            if (t.type === 'chord') return t.lyric
-            return ''
-          }).join('')
+          const text = line.tokens
+            .map((t) => (t.type === 'lyric' ? t.text : t.type === 'chord' ? t.lyric : ''))
+            .join('')
           return (
-            <div key={li} className={cn('font-mono', fs.lyric, fs.line)}>
-              <span className="text-primary-light dark:text-primary-dark">{text || ' '}</span>
+            <div key={li} style={{ lineHeight: 1.6, marginBottom: 2 }}>
+              <span style={{ fontSize: lyricSize, fontWeight: 400, color: lyricColor, whiteSpace: 'pre' }}>
+                {text || ' '}
+              </span>
             </div>
           )
         }
 
+        // Line with chords — inline-flex columns
         return (
-          <div key={li} className={cn('font-mono', fs.line)}>
-            <div className="flex flex-wrap items-end">
-              {line.tokens.map((token, ti) => {
-                if (token.type === 'chord') {
-                  const lyricLen = token.lyric.length
-                  const chordLen = token.chord.length
-                  const width = Math.max(lyricLen, chordLen + 1)
-                  return (
-                    <span
-                      key={ti}
-                      className="inline-flex flex-col"
-                      style={{ minWidth: `${width}ch` }}
-                    >
-                      <span className={cn('text-blue-accent font-mono font-semibold', fs.chord)}>
-                        {token.chord}
-                      </span>
-                      <span className={cn('text-primary-light dark:text-primary-dark font-mono', fs.lyric)}>
-                        {token.lyric || ' '}
-                      </span>
+          <div key={li} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 4 }}>
+            {line.tokens.map((token, ti) => {
+              if (token.type === 'chord') {
+                return (
+                  <span key={ti} style={{ display: 'inline-flex', flexDirection: 'column' }}>
+                    <span style={{
+                      fontSize: chordSize, fontWeight: 700, color: chordColor,
+                      whiteSpace: 'pre', lineHeight: 1.3,
+                    }}>
+                      {token.chord}
                     </span>
-                  )
-                }
-                if (token.type === 'lyric') {
-                  return (
-                    <span key={ti} className={cn('text-primary-light dark:text-primary-dark font-mono', fs.lyric)}>
-                      {token.text}
+                    <span style={{
+                      fontSize: lyricSize, fontWeight: 400, color: '#1C2333',
+                      whiteSpace: 'pre', lineHeight: 1.6,
+                    }}>
+                      {token.lyric || ' '}
                     </span>
-                  )
-                }
-                return null
-              })}
-            </div>
+                  </span>
+                )
+              }
+              if (token.type === 'lyric') {
+                return (
+                  <span key={ti} style={{
+                    fontSize: lyricSize, fontWeight: 400, color: '#1C2333',
+                    whiteSpace: 'pre', lineHeight: 1.6, alignSelf: 'flex-end',
+                  }}>
+                    {token.text}
+                  </span>
+                )
+              }
+              return null
+            })}
           </div>
         )
       })}

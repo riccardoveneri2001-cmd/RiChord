@@ -1,135 +1,176 @@
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { cn } from '../../lib/utils'
+import { BottomSheet } from '../ui/BottomSheet'
 
-const NOTES_IT = ['Do', 'Re', 'Mi', 'Fa', 'Sol', 'La', 'Si']
-const ACCIDENTALS = ['♮', '#', '♭'] as const
-type Accidental = typeof ACCIDENTALS[number]
-
-const VARIANTS = ['m', '7', 'm7', 'maj7', 'sus2', 'sus4', 'dim', 'aug', '+5'] as const
+const NOTES = ['Do', 'Re', 'Mi', 'Fa', 'Sol', 'La', 'Si']
+const ALTS = ['♮', '#', '♭'] as const
+type Alt = typeof ALTS[number]
+const VARIANTS: string[] = ['', 'm', '7', 'm7', 'maj7', 'sus2', 'sus4', 'dim', 'aug']
+const VARIANT_LABELS = ['Magg.', 'm', '7', 'm7', 'maj7', 'sus2', 'sus4', 'dim', 'aug']
 
 interface ChordSelectorProps {
-  onSelect: (chord: string) => void
+  open: boolean
   onClose: () => void
+  onInsert: (chord: string) => void
+  onDelete?: () => void
+  existingChord?: string
 }
 
-export function ChordSelector({ onSelect, onClose }: ChordSelectorProps) {
-  const [selectedNote, setSelectedNote] = useState<string | null>(null)
-  const [accidental, setAccidental] = useState<Accidental>('♮')
+function buildNote(note: string, alt: Alt) {
+  if (alt === '#') return `${note}#`
+  if (alt === '♭') return `${note}b`
+  return note
+}
 
-  const buildRoot = (note: string, acc: Accidental) => {
-    if (acc === '#') return `${note}#`
-    if (acc === '♭') return `${note}b`
-    return note
-  }
+export function ChordSelector({ open, onClose, onInsert, onDelete, existingChord }: ChordSelectorProps) {
+  const [note, setNote] = useState<string | null>(null)
+  const [alt, setAlt] = useState<Alt>('♮')
+  const [variant, setVariant] = useState(0)
 
-  const handleNoteClick = (note: string) => {
-    setSelectedNote(note)
-  }
+  const root = note ? buildNote(note, alt) : null
+  const chord = root ? `${root}${VARIANTS[variant]}` : null
 
-  const handleVariantClick = (variant: string) => {
-    const root = buildRoot(selectedNote!, accidental)
-    onSelect(`${root}${variant}`)
+  function reset() { setNote(null); setAlt('♮'); setVariant(0) }
+  function handleClose() { reset(); onClose() }
+
+  function handleInsert() {
+    if (!chord) return
+    onInsert(chord)
+    reset()
     onClose()
   }
 
-  const handleConfirmBase = () => {
-    const root = buildRoot(selectedNote!, accidental)
-    onSelect(root)
+  function handleDelete() {
+    onDelete?.()
+    reset()
     onClose()
   }
 
   return (
-    <motion.div
-      className="bg-white dark:bg-night-surface rounded-2xl shadow-2xl border border-border-light dark:border-border-dark overflow-hidden"
-      style={{ width: 300 }}
-      initial={{ opacity: 0, scale: 0.95, y: -8 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95, y: -8 }}
-      transition={{ duration: 0.15 }}
-    >
-      <AnimatePresence mode="wait">
-        {!selectedNote ? (
-          <motion.div key="notes" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <div className="px-4 pt-3 pb-2">
-              <p className="text-xs text-secondary font-jakarta font-medium uppercase tracking-wide mb-2">Seleziona nota</p>
-              {/* Accidental toggle */}
-              <div className="flex gap-1 mb-3">
-                {ACCIDENTALS.map((acc) => (
-                  <button
-                    key={acc}
-                    onClick={() => setAccidental(acc)}
-                    className={cn(
-                      'flex-1 py-1.5 rounded-lg text-sm font-mono font-medium transition-colors min-h-[36px]',
-                      accidental === acc
-                        ? 'bg-blue-accent text-white'
-                        : 'bg-gray-100 dark:bg-slate-700 text-secondary hover:bg-gray-200 dark:hover:bg-slate-600'
-                    )}
-                  >
-                    {acc}
-                  </button>
-                ))}
-              </div>
-              {/* Notes grid */}
-              <div className="grid grid-cols-4 gap-1.5">
-                {NOTES_IT.map((note) => (
-                  <button
-                    key={note}
-                    onClick={() => handleNoteClick(note)}
-                    className="py-2.5 rounded-xl bg-gray-50 dark:bg-slate-800 text-sm font-mono font-medium text-primary-light dark:text-primary-dark hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-accent transition-colors min-h-[44px]"
-                  >
-                    {buildRoot(note, accidental)}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="px-4 py-2 border-t border-border-light dark:border-border-dark">
-              <button onClick={onClose} className="w-full py-2 text-sm text-secondary font-jakarta hover:text-primary-light dark:hover:text-primary-dark transition-colors">
-                Annulla
-              </button>
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div key="variants" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <div className="px-4 pt-3 pb-2">
-              <div className="flex items-center gap-2 mb-3">
-                <button
-                  onClick={() => setSelectedNote(null)}
-                  className="text-secondary hover:text-primary-light dark:hover:text-primary-dark text-xs font-jakarta transition-colors"
-                >
-                  ← Indietro
-                </button>
-                <span className="text-sm font-mono font-semibold text-blue-accent">
-                  {buildRoot(selectedNote, accidental)}
-                </span>
-              </div>
-              <p className="text-xs text-secondary font-jakarta font-medium uppercase tracking-wide mb-2">Variante (opzionale)</p>
-              <div className="grid grid-cols-3 gap-1.5">
-                {VARIANTS.map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => handleVariantClick(v)}
-                    className="py-2.5 rounded-xl bg-gray-50 dark:bg-slate-800 text-sm font-mono font-medium text-primary-light dark:text-primary-dark hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-accent transition-colors min-h-[44px]"
-                  >
-                    {buildRoot(selectedNote, accidental)}{v}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="px-4 py-2 border-t border-border-light dark:border-border-dark">
+    <BottomSheet open={open} onClose={handleClose}>
+      <div style={{ padding: '0 16px 32px' }}>
+        <p style={{
+          textAlign: 'center', margin: '0 0 12px',
+          fontSize: 13, fontWeight: 600, color: '#8A94A6',
+          textTransform: 'uppercase', letterSpacing: '0.04em',
+        }}>
+          Seleziona accordo
+        </p>
+
+        {/* Preview */}
+        <div style={{ textAlign: 'center', marginBottom: 14, minHeight: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontSize: 30, fontWeight: 700, fontFamily: 'monospace', color: chord ? '#2176AE' : '#C8CDD8' }}>
+            {chord ?? (existingChord ? existingChord : '—')}
+          </span>
+        </div>
+
+        {/* Note grid — 7 columns */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 5, marginBottom: 8 }}>
+          {NOTES.map((n) => {
+            const active = note === n
+            return (
               <button
-                onClick={handleConfirmBase}
-                className="w-full py-2.5 bg-blue-accent text-white rounded-xl text-sm font-jakarta font-medium hover:bg-blue-500 transition-colors min-h-[44px]"
+                key={n}
+                onClick={() => setNote(n)}
+                style={{
+                  padding: '9px 0', borderRadius: 10, border: 'none',
+                  background: active ? '#2176AE' : '#F5F4F1',
+                  color: active ? '#FFFFFF' : '#1C2333',
+                  fontSize: 13, fontWeight: 600, fontFamily: 'monospace',
+                  cursor: 'pointer', minHeight: 44,
+                }}
               >
-                Usa solo {buildRoot(selectedNote, accidental)}
+                {n}
               </button>
-              <button onClick={onClose} className="w-full py-2 text-sm text-secondary font-jakarta hover:text-primary-light dark:hover:text-primary-dark transition-colors mt-1">
-                Annulla
+            )
+          })}
+        </div>
+
+        {/* Alteration row */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
+          {ALTS.map((a) => {
+            const active = alt === a
+            return (
+              <button
+                key={a}
+                onClick={() => setAlt(a)}
+                style={{
+                  flex: 1, padding: '7px 0', borderRadius: 10, border: 'none',
+                  background: active ? '#E0F0FA' : '#F5F4F1',
+                  color: active ? '#2176AE' : '#8A94A6',
+                  fontSize: 16, fontWeight: 600, fontFamily: 'monospace',
+                  cursor: 'pointer', minHeight: 40,
+                }}
+              >
+                {a}
               </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
+            )
+          })}
+        </div>
+
+        {/* Variant scroll */}
+        <div style={{ overflowX: 'auto', marginBottom: 18 }}>
+          <div style={{ display: 'flex', gap: 6, paddingBottom: 4 }}>
+            {VARIANT_LABELS.map((label, i) => {
+              const active = variant === i
+              const display = root && i > 0 ? `${root}${VARIANTS[i]}` : label
+              return (
+                <button
+                  key={i}
+                  onClick={() => setVariant(i)}
+                  style={{
+                    flexShrink: 0, padding: '7px 13px', borderRadius: 10,
+                    border: `0.5px solid ${active ? '#2176AE' : '#E0DED8'}`,
+                    background: active ? '#E0F0FA' : '#FFFFFF',
+                    color: active ? '#2176AE' : '#8A94A6',
+                    fontSize: 13, fontWeight: 500, fontFamily: 'monospace',
+                    cursor: 'pointer', minHeight: 40,
+                  }}
+                >
+                  {display}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <button
+            onClick={handleInsert}
+            disabled={!chord}
+            style={{
+              width: '100%', padding: 13, borderRadius: 12, border: 'none',
+              background: chord ? '#2176AE' : '#C8CDD8',
+              color: '#FFFFFF', fontSize: 15, fontWeight: 600,
+              cursor: chord ? 'pointer' : 'not-allowed', fontFamily: 'inherit',
+            }}
+          >
+            Inserisci
+          </button>
+          {onDelete && (
+            <button
+              onClick={handleDelete}
+              style={{
+                width: '100%', padding: 13, borderRadius: 12, border: 'none',
+                background: '#FDE8E8', color: '#C0392B', fontSize: 15, fontWeight: 500,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}
+            >
+              Elimina accordo
+            </button>
+          )}
+          <button
+            onClick={handleClose}
+            style={{
+              width: '100%', padding: 13, borderRadius: 12, border: 'none',
+              background: '#F5F4F1', color: '#1C2333', fontSize: 15, fontWeight: 500,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Annulla
+          </button>
+        </div>
+      </div>
+    </BottomSheet>
   )
 }

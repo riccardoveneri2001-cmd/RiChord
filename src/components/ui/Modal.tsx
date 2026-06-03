@@ -1,55 +1,36 @@
-import React from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { X } from 'lucide-react'
-import { cn } from '../../lib/utils'
+import React, { useEffect, useState } from 'react'
+import { BottomSheet } from './BottomSheet'
+
+// ── Generic modal wrapper (BottomSheet-based) ─────────────────────────────────
+// Used by pages not yet rewritten. Will be removed once all pages use BottomSheet directly.
 
 interface ModalProps {
   open: boolean
   onClose: () => void
   title?: string
   children: React.ReactNode
-  size?: 'sm' | 'md' | 'lg'
 }
 
-export function Modal({ open, onClose, title, children, size = 'md' }: ModalProps) {
-  const sizes = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-2xl' }
-
+export function Modal({ open, onClose, title, children }: ModalProps) {
   return (
-    <AnimatePresence>
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <motion.div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-          />
-          <motion.div
-            className={cn(
-              'relative w-full rounded-2xl bg-white dark:bg-night-surface shadow-2xl z-10 overflow-hidden',
-              sizes[size]
-            )}
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            transition={{ type: 'spring', duration: 0.3 }}
-          >
-            {title && (
-              <div className="flex items-center justify-between p-6 border-b border-border-light dark:border-border-dark">
-                <h2 className="text-lg font-semibold font-jakarta text-primary-light dark:text-primary-dark">{title}</h2>
-                <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
-                  <X size={18} className="text-secondary" />
-                </button>
-              </div>
-            )}
-            <div className="p-6">{children}</div>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
+    <BottomSheet open={open} onClose={onClose}>
+      <div style={{ padding: '0 16px 32px' }}>
+        {title && (
+          <p style={{
+            margin: '0 0 16px', textAlign: 'center',
+            fontSize: 13, fontWeight: 600, color: '#8A94A6',
+            textTransform: 'uppercase', letterSpacing: '0.04em',
+          }}>
+            {title}
+          </p>
+        )}
+        {children}
+      </div>
+    </BottomSheet>
   )
 }
+
+// ── ConfirmModal ──────────────────────────────────────────────────────────────
 
 interface ConfirmModalProps {
   open: boolean
@@ -61,24 +42,85 @@ interface ConfirmModalProps {
   danger?: boolean
 }
 
-export function ConfirmModal({ open, onClose, onConfirm, title, message, confirmLabel = 'Conferma', danger }: ConfirmModalProps) {
+export function ConfirmModal({
+  open, onClose, onConfirm, title, message, confirmLabel = 'Conferma', danger = false,
+}: ConfirmModalProps) {
+  const [mounted, setMounted] = useState(false)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (open) {
+      setMounted(true)
+      requestAnimationFrame(() => requestAnimationFrame(() => setVisible(true)))
+    } else {
+      setVisible(false)
+      const t = setTimeout(() => setMounted(false), 200)
+      return () => clearTimeout(t)
+    }
+  }, [open])
+
+  if (!mounted) return null
+
   return (
-    <Modal open={open} onClose={onClose} title={title} size="sm">
-      <p className="text-sm text-secondary font-jakarta mb-6">{message}</p>
-      <div className="flex gap-3 justify-end">
-        <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-jakarta text-secondary hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
-          Annulla
-        </button>
-        <button
-          onClick={() => { onConfirm(); onClose() }}
-          className={cn(
-            'px-4 py-2 rounded-xl text-sm font-jakarta font-medium text-white transition-colors',
-            danger ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-accent hover:bg-blue-500'
-          )}
-        >
-          {confirmLabel}
-        </button>
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 60,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '0 32px',
+        opacity: visible ? 1 : 0,
+        transition: 'opacity 0.2s ease',
+      }}
+    >
+      {/* Overlay */}
+      <div
+        onClick={onClose}
+        style={{ position: 'absolute', inset: 0, background: 'rgba(28,35,51,0.45)' }}
+      />
+
+      {/* Card */}
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          background: '#FFFFFF',
+          borderRadius: 16,
+          padding: 24,
+          transform: visible ? 'scale(1)' : 'scale(0.95)',
+          transition: 'transform 0.2s ease',
+        }}
+      >
+        <h2 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 600, color: '#1C2333' }}>
+          {title}
+        </h2>
+        <p style={{ margin: '0 0 24px', fontSize: 14, color: '#8A94A6', lineHeight: 1.5 }}>
+          {message}
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button
+            onClick={() => { onConfirm(); onClose() }}
+            style={{
+              width: '100%', padding: 13, borderRadius: 12, border: 'none',
+              background: danger ? '#C0392B' : '#2176AE',
+              color: '#FFFFFF', fontSize: 15, fontWeight: 600,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            {confirmLabel}
+          </button>
+          <button
+            onClick={onClose}
+            style={{
+              width: '100%', padding: 13, borderRadius: 12, border: 'none',
+              background: '#F5F4F1',
+              color: '#1C2333', fontSize: 15, fontWeight: 500,
+              cursor: 'pointer', fontFamily: 'inherit',
+            }}
+          >
+            Annulla
+          </button>
+        </div>
       </div>
-    </Modal>
+    </div>
   )
 }

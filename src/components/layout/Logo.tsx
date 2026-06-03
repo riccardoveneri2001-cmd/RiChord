@@ -1,33 +1,18 @@
-import { cn } from '../../lib/utils'
-
 interface LogoProps {
-  size?: 'sm' | 'md' | 'lg'
-  className?: string
+  size?: 'sm' | 'lg'
 }
 
-export function Logo({ size = 'md', className }: LogoProps) {
-  const sizes = { sm: 'text-lg', md: 'text-2xl', lg: 'text-4xl' }
+const SIZE = { sm: 22, lg: 32 } as const
 
+export function Logo({ size = 'sm' }: LogoProps) {
+  const px = SIZE[size]
   return (
-    <span className={cn('font-display font-normal select-none', sizes[size], className)}>
-      <span className="text-primary-light dark:text-primary-dark">Ri</span>
-      <span className="text-blue-accent">Chord</span>
-    </span>
-  )
-}
-
-export function LogoIcon({ size = 40 }: { size?: number }) {
-  return (
-    <div
-      className="bg-blue-primary flex items-center justify-center font-display font-normal text-white select-none shrink-0"
-      style={{
-        width: size,
-        height: size,
-        borderRadius: Math.round(size * 0.325),
-        fontSize: size * 0.36,
-      }}
+    <span
+      className="select-none font-bold"
+      style={{ fontSize: px, letterSpacing: '-0.5px', lineHeight: 1 }}
     >
-      Ri
-    </div>
+      <span style={{ color: '#1C2333' }}>Ri</span>
+      <span style={{ color: '#2176AE' }}>Chord</span>
+    </span>
   )
 }

@@ -21,11 +21,14 @@ import { SharedLinksPage } from './pages/SharedLinksPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { SharedPage } from './pages/SharedPage'
 
+const DEV_BYPASS_KEY = '__dev_bypass'
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuthStore()
+  if (import.meta.env.DEV && sessionStorage.getItem(DEV_BYPASS_KEY)) return <>{children}</>
   if (loading) return (
-    <div className="min-h-screen bg-app-light dark:bg-app-dark flex items-center justify-center">
-      <div className="animate-spin w-8 h-8 border-2 border-blue-accent border-t-transparent rounded-full" />
+    <div style={{ minHeight: '100svh', background: '#F5F4F1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: 28, height: 28, border: '2px solid #2176AE', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
     </div>
   )
   if (!user) return <Navigate to="/login" replace />
@@ -124,16 +127,17 @@ export default function App() {
       </BrowserRouter>
 
       <Toaster
-        position="top-right"
+        position="top-center"
         toastOptions={{
-          duration: 3000,
+          duration: 2500,
           style: {
-            background: theme === 'dark' ? '#162438' : '#ffffff',
-            color: theme === 'dark' ? '#E8EDF5' : '#0D1B2E',
-            border: `1px solid ${theme === 'dark' ? '#1E3A5F' : '#E5EAF2'}`,
-            fontFamily: '"Plus Jakarta Sans", sans-serif',
-            fontSize: '13px',
+            background: '#1C2333',
+            color: '#FFFFFF',
             borderRadius: '12px',
+            padding: '10px 16px',
+            fontSize: '14px',
+            fontWeight: 500,
+            fontFamily: 'inherit',
           },
         }}
       />

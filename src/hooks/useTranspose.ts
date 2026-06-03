@@ -3,7 +3,9 @@ import { transposeChordPro } from '../lib/chordpro'
 
 export function useTranspose(initialContent: string, _initialKey: string | null) {
   const [semitones, setSemitones] = useState(0)
-  const [notation, setNotation] = useState<'italian' | 'english'>('italian')
+  const [notation, setNotation] = useState<'italian' | 'english'>(
+    () => (localStorage.getItem('notation-pref') as 'italian' | 'english') ?? 'italian',
+  )
 
   const transposedContent = transposeChordPro(initialContent, semitones, notation)
 

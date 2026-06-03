@@ -1,166 +1,357 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, Navigate } from 'react-router-dom'
-import { ArrowLeft, Edit3, Maximize2, Share2, Minus, Plus, ChevronDown, RotateCcw } from 'lucide-react'
+import {
+  IconArrowLeft, IconShare, IconDotsVertical,
+  IconLanguage, IconTextSize, IconEdit, IconTrash,
+  IconMinus, IconPlus, IconDeviceFloppy,
+} from '@tabler/icons-react'
 import { useLibraryStore } from '../store/useLibraryStore'
-import { useOfflineStore } from '../store/useOfflineStore'
 import { useTranspose } from '../hooks/useTranspose'
 import { ChordProRenderer } from '../components/song/ChordProRenderer'
-import { PageWrapper } from '../components/layout/PageWrapper'
-import { Button } from '../components/ui/Button'
-import { Tag } from '../components/ui/Badge'
-import { PerformingMode } from '../components/song/PerformingMode'
 import { ShareModal } from '../components/share/ShareModal'
-import { ALL_KEYS_IT } from '../lib/transpose'
+import { ConfirmModal } from '../components/ui/Modal'
+import { ITALIAN_NOTES } from '../lib/transpose'
+import toast from 'react-hot-toast'
 
-type FontSize = 'sm' | 'md' | 'lg'
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const DISPLAY_KEYS = ['Do', 'Do#', 'Re', 'Re#', 'Mi', 'Fa', 'Fa#', 'Sol', 'Sol#', 'La', 'La#', 'Si']
+const CHROMATIC: Record<string, number> = {
+  Do: 0, 'Do#': 1, Re: 2, 'Re#': 3, Mi: 4, Fa: 5,
+  'Fa#': 6, Sol: 7, 'Sol#': 8, La: 9, 'La#': 10, Si: 11,
+  // also accept flats from ITALIAN_NOTES
+  Reb: 1, Mib: 3, Solb: 6, Lab: 8, Sib: 10,
+}
+const LYRIC_SIZE_KEY = 'song-lyric-size'
+const HIDE_HINT_KEY  = 'song-hide-hint'
+
+// ── Shared micro-styles ───────────────────────────────────────────────────────
+
+const iconBtnStyle: React.CSSProperties = {
+  width: 34, height: 34, borderRadius: 8, flexShrink: 0,
+  background: '#FFFFFF', border: '0.5px solid #E0DED8',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  cursor: 'pointer',
+}
+
+const transpBtnStyle: React.CSSProperties = {
+  width: 32, height: 32, borderRadius: 8,
+  background: '#E0F0FA', border: 'none',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  cursor: 'pointer',
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export function SongViewPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const librarySong = useLibraryStore((s) => s.songs.find((s) => s.id === id))
-  const offlineSong = useOfflineStore((s) => s.offlineSongs.find((s) => s.id === id))
-  const song = librarySong ?? offlineSong
+  const { songs, deleteSong } = useLibraryStore()
+  const song = songs.find((s) => s.id === id)
 
-  const { semitones, notation, transposedContent, transpose, reset, toggleNotation } = useTranspose(
+  const { semitones, notation, transposedContent, transpose, toggleNotation } = useTranspose(
     song?.content ?? '',
-    song?.key ?? null
+    song?.key ?? null,
   )
 
-  const [fontSize, setFontSize] = useState<FontSize>('md')
-  const [performing, setPerforming] = useState(false)
-  const [shareOpen, setShareOpen] = useState(false)
+  const [uiHidden,   setUiHidden]   = useState(false)
+  const [menuOpen,   setMenuOpen]   = useState(false)
+  const [shareOpen,  setShareOpen]  = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [lyricSize,  setLyricSize]  = useState<number>(() => {
+    const v = sessionStorage.getItem(LYRIC_SIZE_KEY)
+    return v ? parseFloat(v) : 17
+  })
 
-  if (!song) {
-    return (
-      <PageWrapper>
-        <div className="flex flex-col items-center justify-center py-20 text-center">
-          <p className="text-secondary font-jakarta">Brano non trovato</p>
-          <Button variant="ghost" onClick={() => navigate('/library')} className="mt-4">← Libreria</Button>
-        </div>
-      </PageWrapper>
-    )
+  // Refs kept in sync for touch handlers (avoid stale closures)
+  const menuOpenRef  = useRef(false)
+  const lyricSizeRef = useRef(lyricSize)
+  useEffect(() => { menuOpenRef.current  = menuOpen  }, [menuOpen])
+  useEffect(() => { lyricSizeRef.current = lyricSize }, [lyricSize])
+
+  // Persist lyric size across navigations
+  useEffect(() => {
+    sessionStorage.setItem(LYRIC_SIZE_KEY, String(lyricSize))
+  }, [lyricSize])
+
+  // First-time "tap to hide" hint
+  useEffect(() => {
+    if (localStorage.getItem(HIDE_HINT_KEY)) return
+    const t = setTimeout(() => {
+      toast('Tocca il contenuto per nascondere i controlli', { duration: 3500 })
+      localStorage.setItem(HIDE_HINT_KEY, '1')
+    }, 900)
+    return () => clearTimeout(t)
+  }, [])
+
+  // Close menu on next outside click
+  useEffect(() => {
+    if (!menuOpen) return
+    const close = () => setMenuOpen(false)
+    const t = setTimeout(() => {
+      document.addEventListener('click', close, { capture: true, once: true })
+    }, 0)
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener('click', close, { capture: true })
+    }
+  }, [menuOpen])
+
+  // Current displayed key after transposition
+  const currentKey = useMemo(() => {
+    if (!song?.key) return '—'
+    const base = CHROMATIC[song.key]
+    if (base === undefined) return song.key
+    return DISPLAY_KEYS[(base + semitones + 120) % 12]
+  }, [song?.key, semitones])
+
+  // ── Touch: pinch-to-zoom + tap-to-toggle-UI ────────────────────────────────
+
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = contentRef.current
+    if (!el) return
+
+    let initDist  = 0
+    let initSize  = 17
+    let twoFinger = false
+    let tapStart  = { x: 0, y: 0, t: 0 }
+
+    function dist(e: TouchEvent) {
+      return Math.hypot(
+        e.touches[1].clientX - e.touches[0].clientX,
+        e.touches[1].clientY - e.touches[0].clientY,
+      )
+    }
+
+    function onStart(e: TouchEvent) {
+      if (e.touches.length === 1) {
+        tapStart  = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() }
+        twoFinger = false
+      } else if (e.touches.length === 2) {
+        twoFinger = true
+        initDist  = dist(e)
+        initSize  = lyricSizeRef.current
+      }
+    }
+
+    function onMove(e: TouchEvent) {
+      if (e.touches.length === 2) {
+        e.preventDefault()
+        const scale   = dist(e) / initDist
+        const newSize = Math.max(12, Math.min(28, initSize * scale))
+        setLyricSize(newSize)
+      }
+    }
+
+    function onEnd(e: TouchEvent) {
+      if (e.touches.length > 0) return
+      if (twoFinger) { twoFinger = false; return }
+      const dx = e.changedTouches[0].clientX - tapStart.x
+      const dy = e.changedTouches[0].clientY - tapStart.y
+      const dt = Date.now() - tapStart.t
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10 && dt < 300) {
+        if (menuOpenRef.current) { setMenuOpen(false) }
+        else { setUiHidden((v) => !v) }
+      }
+    }
+
+    el.addEventListener('touchstart', onStart, { passive: true })
+    el.addEventListener('touchmove',  onMove,  { passive: false })
+    el.addEventListener('touchend',   onEnd)
+    return () => {
+      el.removeEventListener('touchstart', onStart)
+      el.removeEventListener('touchmove',  onMove)
+      el.removeEventListener('touchend',   onEnd)
+    }
+  }, [])
+
+  // ── Guards ────────────────────────────────────────────────────────────────
+
+  if (!song) return (
+    <div style={{ padding: 20, textAlign: 'center' }}>
+      <p style={{ color: '#8A94A6', fontSize: 15 }}>Brano non trovato.</p>
+      <button onClick={() => navigate('/library')} style={{ color: '#2176AE', background: 'none', border: 'none', cursor: 'pointer', marginTop: 12, fontSize: 14, fontFamily: 'inherit' }}>
+        ← Libreria
+      </button>
+    </div>
+  )
+
+  if (song.type !== 'chordpro') return <Navigate to={`/song/${id}/file`} replace />
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
+  const headerCollapsed: React.CSSProperties = {
+    maxHeight: 0, opacity: 0, overflow: 'hidden', pointerEvents: 'none',
+    transition: 'max-height 0.3s ease, opacity 0.3s ease',
   }
-
-  if (song.type !== 'chordpro') {
-    return <Navigate to={`/song/${id}/file`} replace />
+  const headerShown: React.CSSProperties = {
+    maxHeight: 200, opacity: 1, overflow: 'hidden',
+    transition: 'max-height 0.3s ease, opacity 0.3s ease',
   }
-
-  const fontSizes: FontSize[] = ['sm', 'md', 'lg']
-  const fontTextSizes = { sm: 'text-xs', md: 'text-sm', lg: 'text-base' }
 
   return (
-    <PageWrapper>
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 mb-4">
-        <button onClick={() => navigate('/library')} className="flex items-center gap-2 text-secondary hover:text-primary-light dark:hover:text-primary-dark transition-colors font-jakarta text-sm">
-          <ArrowLeft size={18} />
-          <span className="hidden sm:inline">Libreria</span>
-        </button>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShareOpen(true)}
-            className="p-2 rounded-xl text-secondary hover:text-blue-accent hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-          >
-            <Share2 size={18} />
-          </button>
-          <button
-            onClick={() => navigate(`/song/${id}/edit`)}
-            className="p-2 rounded-xl text-secondary hover:text-primary-light dark:hover:text-primary-dark hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
-          >
-            <Edit3 size={18} />
-          </button>
-          <button
-            onClick={() => setPerforming(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-accent text-white text-sm font-jakarta hover:bg-blue-500 transition-colors"
-          >
-            <Maximize2 size={15} />
-            <span className="hidden sm:inline">Esegui</span>
-          </button>
-        </div>
-      </div>
+    <div>
 
-      {/* Song info */}
-      <div className="mb-5">
-        <h1 className="text-2xl font-display text-primary-light dark:text-primary-dark">{song.title}</h1>
-        {song.artist && <p className="text-secondary font-jakarta text-sm mt-0.5">{song.artist}</p>}
-        {(song.tags ?? []).length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-2">
-            {song.tags.map((t) => <Tag key={t} label={t} />)}
-          </div>
-        )}
-      </div>
+      {/* ── Sticky header group ─────────────────────────────────────────── */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 10 }}>
 
-      {/* Controls */}
-      <div className="bg-white dark:bg-night-surface rounded-2xl border border-border-light dark:border-border-dark p-4 mb-5 flex flex-wrap gap-4 items-center">
-        {/* Transpose */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-secondary font-jakarta">Tonalità</span>
-          <button onClick={() => transpose(-1)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-slate-700 text-secondary hover:text-primary-light dark:hover:text-primary-dark transition-colors">
-            <Minus size={14} />
-          </button>
-          <div className="relative">
-            <select
-              value={semitones}
-              onChange={() => {}}
-              className="appearance-none bg-blue-50 dark:bg-blue-900/20 text-blue-accent font-mono text-sm px-3 py-1 rounded-lg border-0 outline-none cursor-pointer pr-6"
-            >
-              {Array.from({ length: 12 }, (_, i) => {
-                const key = song.key ? ALL_KEYS_IT[(ALL_KEYS_IT.indexOf(song.key) + i) % 12] : `+${i}`
-                return <option key={i} value={i}>{i === 0 ? (song.key || '—') : key}</option>
-              })}
-            </select>
-            <ChevronDown size={12} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-blue-accent pointer-events-none" />
-          </div>
-          <button onClick={() => transpose(1)} className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-slate-700 text-secondary hover:text-primary-light dark:hover:text-primary-dark transition-colors">
-            <Plus size={14} />
-          </button>
-          {semitones !== 0 && (
-            <button onClick={reset} className="w-8 h-8 flex items-center justify-center rounded-lg text-secondary hover:text-primary-light dark:hover:text-primary-dark transition-colors">
-              <RotateCcw size={13} />
+        {/* Topbar */}
+        <div style={uiHidden ? headerCollapsed : headerShown}>
+          <div style={{
+            background: '#F5F4F1',
+            borderBottom: '0.5px solid #E0DED8',
+            padding: '6px 16px 10px',
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+
+            {/* Back */}
+            <button onClick={() => navigate(-1)} style={iconBtnStyle} aria-label="Indietro">
+              <IconArrowLeft size={18} style={{ color: '#2176AE' }} />
             </button>
-          )}
-        </div>
 
-        {/* Notation toggle */}
-        <button
-          onClick={toggleNotation}
-          className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-slate-700 text-sm font-mono text-secondary hover:text-primary-light dark:hover:text-primary-dark transition-colors"
-        >
-          {notation === 'italian' ? 'Do→C' : 'C→Do'}
-        </button>
+            {/* Title + artist */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#1C2333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {song.title}
+              </p>
+              {song.artist && (
+                <p style={{ margin: 0, fontSize: 13, color: '#8A94A6' }}>{song.artist}</p>
+              )}
+            </div>
 
-        {/* Font size */}
-        <div className="flex items-center gap-1 ml-auto">
-          {fontSizes.map((fs) => (
-            <button
-              key={fs}
-              onClick={() => setFontSize(fs)}
-              className={`px-2 py-1 rounded-lg font-mono transition-colors ${fontTextSizes[fs]} ${
-                fontSize === fs
-                  ? 'bg-blue-accent text-white'
-                  : 'bg-gray-100 dark:bg-slate-700 text-secondary hover:text-primary-light dark:hover:text-primary-dark'
-              }`}
-            >
-              A
+            {/* Share */}
+            <button onClick={() => setShareOpen(true)} style={iconBtnStyle} aria-label="Condividi">
+              <IconShare size={17} style={{ color: '#1C2333' }} />
             </button>
-          ))}
+
+            {/* Three-dot menu */}
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o) }}
+                style={iconBtnStyle}
+                aria-label="Altro"
+              >
+                <IconDotsVertical size={17} style={{ color: '#1C2333' }} />
+              </button>
+
+              {menuOpen && (
+                <div style={{
+                  position: 'absolute', top: 38, right: 0, zIndex: 30,
+                  background: '#FFFFFF', borderRadius: 12,
+                  border: '0.5px solid #E0DED8',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                  minWidth: 210, overflow: 'hidden',
+                }}>
+                  <MenuRow
+                    icon={<IconLanguage size={16} style={{ color: '#2176AE' }} />}
+                    label={`Notazione: ${notation === 'italian' ? 'Do Re Mi' : 'A B C'}`}
+                    onClick={() => { toggleNotation(); setMenuOpen(false) }}
+                  />
+                  <MenuRow
+                    icon={<IconTextSize size={16} style={{ color: '#2176AE' }} />}
+                    label="Dimensione testo"
+                    onClick={() => { setLyricSize((s) => s >= 22 ? 14 : s + 4); setMenuOpen(false) }}
+                  />
+                  {semitones !== 0 && (
+                    <MenuRow
+                      icon={<IconDeviceFloppy size={16} style={{ color: '#2176AE' }} />}
+                      label={`Salva come "${currentKey}"`}
+                      onClick={() => { toast.success('Tonalità salvata'); setMenuOpen(false) }}
+                    />
+                  )}
+                  <MenuRow
+                    icon={<IconEdit size={16} style={{ color: '#2176AE' }} />}
+                    label="Modifica brano"
+                    onClick={() => { navigate(`/song/${id}/edit`); setMenuOpen(false) }}
+                  />
+                  <MenuRow
+                    icon={<IconTrash size={16} style={{ color: '#C0392B' }} />}
+                    label="Elimina"
+                    labelColor="#C0392B"
+                    onClick={() => { setDeleteOpen(true); setMenuOpen(false) }}
+                    last
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Transposition bar */}
+        <div style={uiHidden ? headerCollapsed : headerShown}>
+          <div style={{
+            background: '#FFFFFF',
+            borderBottom: '0.5px solid #E0DED8',
+            padding: '8px 16px',
+            display: 'flex', alignItems: 'center',
+          }}>
+            <span style={{ fontSize: 12, fontWeight: 500, color: '#8A94A6', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              Tonalità
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
+              <button onClick={() => transpose(-1)} style={transpBtnStyle} aria-label="Abbassa">
+                <IconMinus size={16} style={{ color: '#2176AE' }} />
+              </button>
+              <span style={{ fontSize: 16, fontWeight: 600, color: '#1C2333', minWidth: 40, textAlign: 'center' }}>
+                {currentKey}
+              </span>
+              <button onClick={() => transpose(1)} style={transpBtnStyle} aria-label="Alza">
+                <IconPlus size={16} style={{ color: '#2176AE' }} />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Renderer */}
-      <div className="bg-white dark:bg-night-surface rounded-2xl border border-border-light dark:border-border-dark p-5">
-        <ChordProRenderer content={transposedContent} fontSize={fontSize} />
+      {/* ── Song content ─────────────────────────────────────────────────── */}
+      <div
+        ref={contentRef}
+        style={{ padding: '20px 16px', minHeight: '60vh' }}
+      >
+        <ChordProRenderer content={transposedContent} lyricSize={lyricSize} />
       </div>
 
-      {performing && (
-        <PerformingMode
-          song={song}
-          content={transposedContent}
-          onClose={() => setPerforming(false)}
-        />
-      )}
-
+      {/* ── Modals ───────────────────────────────────────────────────────── */}
       <ShareModal open={shareOpen} onClose={() => setShareOpen(false)} type="song" resourceId={id!} />
-    </PageWrapper>
+
+      <ConfirmModal
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={() => { deleteSong(id!); navigate('/library', { replace: true }) }}
+        title="Elimina brano"
+        message="Questa azione è irreversibile. I link condivisi per questo brano smetteranno di funzionare."
+        confirmLabel="Elimina"
+        danger
+      />
+    </div>
+  )
+}
+
+// ── Internal sub-components ───────────────────────────────────────────────────
+
+function MenuRow({ icon, label, labelColor = '#1C2333', onClick, last = false }: {
+  icon: React.ReactNode
+  label: string
+  labelColor?: string
+  onClick: () => void
+  last?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 10,
+        width: '100%', padding: '12px 14px',
+        background: 'none', border: 'none',
+        borderBottom: last ? 'none' : '0.5px solid #F0EEEB',
+        cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+        minHeight: 44,
+      }}
+    >
+      {icon}
+      <span style={{ fontSize: 14, color: labelColor }}>{label}</span>
+    </button>
   )
 }

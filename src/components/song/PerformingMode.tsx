@@ -1,6 +1,8 @@
-import React, { useState, useRef, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { X, Pause, Play } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  IconX, IconPlayerPlay, IconPlayerPause,
+  IconChevronLeft, IconChevronRight,
+} from '@tabler/icons-react'
 import { ChordProRenderer } from './ChordProRenderer'
 import { useAutoScroll } from '../../hooks/useAutoScroll'
 import type { Song } from '../../store/useLibraryStore'
@@ -17,108 +19,149 @@ export function PerformingMode({ song, content, onClose, onNext, onPrev }: Perfo
   const [showControls, setShowControls] = useState(true)
   const scrollRef = useRef<HTMLDivElement>(null)
   const { isScrolling, speed, setSpeed, toggle } = useAutoScroll(scrollRef)
-  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const handleTap = useCallback(() => {
-    setShowControls((v) => {
-      if (!v) {
-        if (hideTimer.current) clearTimeout(hideTimer.current)
-        hideTimer.current = setTimeout(() => setShowControls(false), 3000)
-      }
-      return !v
-    })
-  }, [])
+  // Auto-hide controls after 3 s of visibility
+  useEffect(() => {
+    if (!showControls) return
+    const t = setTimeout(() => setShowControls(false), 3000)
+    return () => clearTimeout(t)
+  }, [showControls])
 
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+  // Keyboard shortcuts
+  const handleKey = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') onClose()
     if (e.key === 'ArrowRight' && onNext) onNext()
-    if (e.key === 'ArrowLeft' && onPrev) onPrev()
-  }, [onClose, onNext, onPrev])
+    if (e.key === 'ArrowLeft'  && onPrev) onPrev()
+    if (e.key === ' ') { e.preventDefault(); toggle() }
+  }, [onClose, onNext, onPrev, toggle])
 
-  React.useEffect(() => {
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [handleKeyDown])
+  useEffect(() => {
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [handleKey])
+
+  function handleContentTap() {
+    setShowControls((v) => !v)
+  }
+
+  const overlayStyle: React.CSSProperties = {
+    opacity: showControls ? 1 : 0,
+    pointerEvents: showControls ? 'all' : 'none',
+    transition: 'opacity 0.25s ease',
+  }
+
+  const iconBtnStyle: React.CSSProperties = {
+    width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+    background: 'rgba(255,255,255,0.12)', border: 'none',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: 'pointer', color: '#FFFFFF',
+  }
 
   return (
-    <motion.div
-      className="fixed inset-0 z-[200] bg-black flex flex-col"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-    >
-      {/* Controls overlay */}
-      <AnimatePresence>
-        {showControls && (
-          <motion.div
-            className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-5 py-4 bg-gradient-to-b from-black/80 to-transparent"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-          >
-            <div>
-              <p className="text-white font-display text-lg leading-tight">{song.title}</p>
-              {song.artist && <p className="text-white/60 font-jakarta text-sm">{song.artist}</p>}
-            </div>
-            <button
-              onClick={onClose}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 text-white hover:bg-white/20 transition-colors"
-            >
-              <X size={18} />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 200,
+      background: '#000000',
+      display: 'flex', flexDirection: 'column',
+    }}>
 
-      {/* Content */}
+      {/* Header overlay */}
       <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto px-5 py-20 cursor-pointer"
-        onClick={handleTap}
+        style={{
+          ...overlayStyle,
+          position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10,
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, transparent 100%)',
+          padding: '16px 16px 40px',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12,
+        }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <ChordProRenderer content={content} fontSize="lg" className="text-white" />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {song.title}
+          </p>
+          {song.artist && (
+            <p style={{ margin: '3px 0 0', fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>{song.artist}</p>
+          )}
+        </div>
+        <button onClick={onClose} style={iconBtnStyle} aria-label="Chiudi">
+          <IconX size={20} />
+        </button>
       </div>
 
-      {/* Bottom controls */}
-      <AnimatePresence>
-        {showControls && (
-          <motion.div
-            className="absolute bottom-0 left-0 right-0 flex items-center gap-3 px-5 py-4 bg-gradient-to-t from-black/80 to-transparent"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-          >
-            {onPrev && (
-              <button onClick={onPrev} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 text-white hover:bg-white/20 transition-colors">
-                ‹
-              </button>
-            )}
+      {/* Scrollable content */}
+      <div
+        ref={scrollRef}
+        onClick={handleContentTap}
+        style={{
+          flex: 1, overflowY: 'auto',
+          padding: '88px 20px 120px',
+          cursor: 'default',
+          // Hide scrollbar
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+        }}
+      >
+        <ChordProRenderer content={content} lyricSize={20} theme="dark" />
+      </div>
 
-            {/* AutoScroll */}
-            <div className="flex items-center gap-2 bg-white/10 rounded-xl px-3 py-2">
-              <button onClick={toggle} className="text-white">
-                {isScrolling ? <Pause size={16} /> : <Play size={16} />}
-              </button>
-              <input
-                type="range"
-                min={0.2}
-                max={5}
-                step={0.2}
-                value={speed}
-                onChange={(e) => setSpeed(parseFloat(e.target.value))}
-                className="w-20 accent-blue-400"
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-
-            {onNext && (
-              <button onClick={onNext} className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/10 text-white hover:bg-white/20 transition-colors ml-auto">
-                ›
-              </button>
-            )}
-          </motion.div>
+      {/* Footer overlay */}
+      <div
+        style={{
+          ...overlayStyle,
+          position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 10,
+          background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%)',
+          padding: '40px 16px 28px',
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Prev */}
+        {onPrev ? (
+          <button onClick={onPrev} style={iconBtnStyle} aria-label="Precedente">
+            <IconChevronLeft size={22} />
+          </button>
+        ) : (
+          <div style={{ width: 44 }} />
         )}
-      </AnimatePresence>
-    </motion.div>
+
+        {/* Autoscroll */}
+        <div style={{
+          flex: 1, display: 'flex', alignItems: 'center', gap: 10,
+          background: 'rgba(255,255,255,0.1)', borderRadius: 12,
+          padding: '8px 14px',
+        }}>
+          <button
+            onClick={toggle}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#FFFFFF', display: 'flex', alignItems: 'center', flexShrink: 0, padding: 0 }}
+            aria-label={isScrolling ? 'Pausa scorrimento' : 'Avvia scorrimento'}
+          >
+            {isScrolling
+              ? <IconPlayerPause size={18} style={{ color: '#FFFFFF' }} />
+              : <IconPlayerPlay  size={18} style={{ color: '#FFFFFF' }} />
+            }
+          </button>
+          <input
+            type="range"
+            min={0.2}
+            max={5}
+            step={0.2}
+            value={speed}
+            onChange={(e) => setSpeed(parseFloat(e.target.value))}
+            onClick={(e) => e.stopPropagation()}
+            style={{ flex: 1, accentColor: '#2176AE', cursor: 'pointer' }}
+            aria-label="Velocità scorrimento"
+          />
+        </div>
+
+        {/* Next */}
+        {onNext ? (
+          <button onClick={onNext} style={iconBtnStyle} aria-label="Successivo">
+            <IconChevronRight size={22} />
+          </button>
+        ) : (
+          <div style={{ width: 44 }} />
+        )}
+      </div>
+    </div>
   )
 }
