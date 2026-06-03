@@ -17,12 +17,13 @@ interface ShareLink {
 
 export function SharedLinksPage() {
   const user = useAuthStore((s) => s.user)
+  const isDevBypass = import.meta.env.DEV && !!sessionStorage.getItem('__dev_bypass')
   const [links,    setLinks]    = useState<ShareLink[]>([])
-  const [loading,  setLoading]  = useState(true)
+  const [loading,  setLoading]  = useState(!isDevBypass)
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!user) return
+    if (!user || isDevBypass) return
     supabase
       .from('share_links')
       .select('*')
@@ -92,7 +93,7 @@ export function SharedLinksPage() {
             <IconLink size={32} style={{ color: '#2176AE' }} />
           </div>
           <p style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 600, color: '#1C2333' }}>
-            Nessun link condiviso
+            Nessun link condiviso ancora
           </p>
           <p style={{ margin: 0, fontSize: 14, color: '#8A94A6', lineHeight: 1.5, maxWidth: 260 }}>
             I link che generi dalla visualizzazione di un brano o setlist appariranno qui.
