@@ -1,0 +1,142 @@
+import React, { useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
+import { supabase } from './lib/supabase'
+import { useAuthStore } from './store/useAuthStore'
+import { useThemeStore } from './store/useThemeStore'
+import { useLibraryStore } from './store/useLibraryStore'
+import { useSetlistStore } from './store/useSetlistStore'
+import { useOnboardingStore } from './store/useOnboardingStore'
+import { useOfflineSync } from './hooks/useOfflineSync'
+import { startKeepalive } from './lib/keepalive'
+import { AppLayout } from './components/layout/AppLayout'
+import { LoginPage } from './pages/LoginPage'
+import { LibraryPage } from './pages/LibraryPage'
+import { SongEditorPage } from './pages/SongEditorPage'
+import { SongViewPage } from './pages/SongViewPage'
+import { SongFilePage } from './pages/SongFilePage'
+import { SetlistsPage } from './pages/SetlistsPage'
+import { SetlistDetailPage } from './pages/SetlistDetailPage'
+import { SharedLinksPage } from './pages/SharedLinksPage'
+import { ProfilePage } from './pages/ProfilePage'
+import { SharedPage } from './pages/SharedPage'
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuthStore()
+  if (loading) return (
+    <div className="min-h-screen bg-app-light dark:bg-app-dark flex items-center justify-center">
+      <div className="animate-spin w-8 h-8 border-2 border-blue-accent border-t-transparent rounded-full" />
+    </div>
+  )
+  if (!user) return <Navigate to="/login" replace />
+  return <>{children}</>
+}
+
+function AppInit() {
+  useOfflineSync()
+  return null
+}
+
+export default function App() {
+  const { setSession, setLoading } = useAuthStore()
+  const { theme } = useThemeStore()
+  const { fetchSongs } = useLibraryStore()
+  const { fetchSetlists } = useSetlistStore()
+  const { setDone, startTour } = useOnboardingStore()
+
+  // Apply theme class to html element
+  useEffect(() => {
+    const html = document.documentElement
+    if (theme === 'dark') html.classList.add('dark')
+    else html.classList.remove('dark')
+  }, [theme])
+
+  useEffect(() => {
+    // Init auth
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setLoading(false)
+
+      if (session?.user) {
+        fetchSongs(session.user.id)
+        fetchSetlists(session.user.id)
+
+        // Check onboarding status
+        supabase
+          .from('user_profiles')
+          .select('onboarding_done')
+          .eq('user_id', session.user.id)
+          .single()
+          .then(({ data }) => {
+            if (!data?.onboarding_done) {
+              startTour()
+            } else {
+              setDone(true)
+            }
+          })
+      }
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+      if (session?.user) {
+        fetchSongs(session.user.id)
+        fetchSetlists(session.user.id)
+      }
+    })
+
+    const stopKeepalive = startKeepalive()
+    return () => {
+      subscription.unsubscribe()
+      stopKeepalive()
+    }
+  }, [])
+
+  return (
+    <div className={theme}>
+      <BrowserRouter>
+        <AppInit />
+        <Routes>
+          {/* Public routes */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/share/:token" element={<SharedPage />} />
+
+          {/* Protected routes */}
+          <Route
+            element={
+              <ProtectedRoute>
+                <AppLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<Navigate to="/library" replace />} />
+            <Route path="/library" element={<LibraryPage />} />
+            <Route path="/song/new" element={<SongEditorPage />} />
+            <Route path="/song/:id" element={<SongViewPage />} />
+            <Route path="/song/:id/edit" element={<SongEditorPage />} />
+            <Route path="/song/:id/file" element={<SongFilePage />} />
+            <Route path="/setlists" element={<SetlistsPage />} />
+            <Route path="/setlists/:id" element={<SetlistDetailPage />} />
+            <Route path="/shared" element={<SharedLinksPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: theme === 'dark' ? '#162438' : '#ffffff',
+            color: theme === 'dark' ? '#E8EDF5' : '#0D1B2E',
+            border: `1px solid ${theme === 'dark' ? '#1E3A5F' : '#E5EAF2'}`,
+            fontFamily: '"Plus Jakarta Sans", sans-serif',
+            fontSize: '13px',
+            borderRadius: '12px',
+          },
+        }}
+      />
+    </div>
+  )
+}

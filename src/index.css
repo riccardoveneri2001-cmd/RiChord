@@ -1,0 +1,81 @@
+@import "tailwindcss";
+
+@theme {
+  /* Colors */
+  --color-app-dark: #0D1B2E;
+  --color-app-light: #F4F6F9;
+  --color-night-base: #0D1B2E;
+  --color-night-surface: #162438;
+  --color-blue-primary: #1E6FBF;
+  --color-blue-accent: #4DA3FF;
+  --color-surface-light: #FFFFFF;
+  --color-surface-dark: #162438;
+  --color-primary-light: #0D1B2E;
+  --color-primary-dark: #E8EDF5;
+  --color-secondary: #6B8BAF;
+  --color-border-light: #E5EAF2;
+  --color-border-dark: #1E3A5F;
+
+  /* Fonts */
+  --font-display: "DM Serif Display", serif;
+  --font-jakarta: "Plus Jakarta Sans", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+html {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  height: 100%;
+  /* Prevent iOS Safari overscroll bounce on the whole page */
+  overscroll-behavior: none;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overscroll-behavior: none;
+  height: 100%;
+  /* iOS Safari: use fill-available so 100vh = visible area */
+  min-height: -webkit-fill-available;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+}
+
+/* Prevent iOS Safari auto-zoom when focusing inputs (requires font-size >= 16px) */
+input,
+textarea,
+select {
+  font-size: max(16px, 1em);
+}
+
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #6B8BAF44;
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #6B8BAF88;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #1E3A5F;
+}
