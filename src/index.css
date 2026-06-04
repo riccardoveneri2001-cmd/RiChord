@@ -20,6 +20,23 @@
   --color-orange:        #E67E22;
 }
 
+/* Dark mode: override Tailwind @theme tokens so bg-bg-page, bg-surface etc. update automatically */
+html.dark {
+  --color-bg-page:       #0F172A;
+  --color-surface:       #1E293B;
+  --color-border:        #334155;
+  --color-primary-light: #1E3A5F;
+  --color-text-1:        #F1F5F9;
+  --color-text-2:        #94A3B8;
+  --color-text-off:      #475569;
+  --color-separator:     #1E293B;
+  background-color: #0F172A;
+  color: #F1F5F9;
+}
+html.dark body {
+  background-color: #0F172A;
+}
+
 *,
 *::before,
 *::after {

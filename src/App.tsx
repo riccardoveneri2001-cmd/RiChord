@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useLayoutEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { supabase } from './lib/supabase'
@@ -48,8 +48,8 @@ export default function App() {
   const { fetchSetlists } = useSetlistStore()
   const { setDone, startTour } = useOnboardingStore()
 
-  // Apply theme class to html element
-  useEffect(() => {
+  // Apply theme class synchronously before paint to avoid flash
+  useLayoutEffect(() => {
     const html = document.documentElement
     if (theme === 'dark') html.classList.add('dark')
     else html.classList.remove('dark')
