@@ -211,6 +211,7 @@ export function SetlistDetailPage() {
                         <div
                           ref={drag.innerRef}
                           {...drag.draggableProps}
+                          onClick={() => item.song && setPerformingIdx(index)}
                           style={{
                             ...drag.draggableProps.style,
                             display: 'flex', alignItems: 'center', gap: 10,
@@ -218,6 +219,7 @@ export function SetlistDetailPage() {
                             borderRadius: 12,
                             border: '0.5px solid #E0DED8',
                             padding: '10px 12px',
+                            cursor: item.song ? 'pointer' : 'default',
                             boxShadow: snapshot.isDragging
                               ? '0 8px 24px rgba(0,0,0,0.12)'
                               : 'none',
@@ -229,6 +231,7 @@ export function SetlistDetailPage() {
                           {/* Grip handle */}
                           <div
                             {...drag.dragHandleProps}
+                            onClick={(e) => e.stopPropagation()}
                             style={{ display: 'flex', alignItems: 'center', cursor: 'grab', padding: '2px 0', flexShrink: 0 }}
                           >
                             <IconGripVertical size={16} style={{ color: '#C8CDD8' }} />
@@ -274,7 +277,7 @@ export function SetlistDetailPage() {
 
                           {/* Remove */}
                           <button
-                            onClick={() => handleRemove(item.id)}
+                            onClick={(e) => { e.stopPropagation(); handleRemove(item.id) }}
                             style={{
                               width: 32, height: 32, borderRadius: 8, flexShrink: 0,
                               background: 'none', border: 'none', cursor: 'pointer',
@@ -389,6 +392,9 @@ export function SetlistDetailPage() {
           onClose={() => setPerformingIdx(null)}
           onNext={performingIdx < enriched.length - 1 ? () => setPerformingIdx((i) => (i ?? 0) + 1) : undefined}
           onPrev={performingIdx > 0 ? () => setPerformingIdx((i) => (i ?? 0) - 1) : undefined}
+          songIndex={performingIdx}
+          totalSongs={enriched.length}
+          setlistName={setlist.name}
         />
       )}
     </div>
