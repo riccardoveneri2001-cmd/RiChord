@@ -10,7 +10,6 @@ import { useTranspose } from '../hooks/useTranspose'
 import { ChordProRenderer } from '../components/song/ChordProRenderer'
 import { ShareModal } from '../components/share/ShareModal'
 import { ConfirmModal } from '../components/ui/Modal'
-import { ITALIAN_NOTES } from '../lib/transpose'
 import toast from 'react-hot-toast'
 
 // ── Constants ─────────────────────────────────────────────────────────────────

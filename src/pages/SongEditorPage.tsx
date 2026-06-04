@@ -1,4 +1,4 @@
-import { CSSProperties, useState } from 'react'
+import { type CSSProperties, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { IconArrowLeft, IconDeviceFloppy, IconChevronRight } from '@tabler/icons-react'
 import { useLibraryStore } from '../store/useLibraryStore'
@@ -70,7 +70,7 @@ function editableToChordPro(
   return [...header, ...(header.length ? [''] : []), ...body].join('\n')
 }
 
-function buildChordRow(text: string, chords: Record<number, string>): string {
+function buildChordRow(_text: string, chords: Record<number, string>): string {
   const positions = Object.keys(chords).map(Number).sort((a, b) => a - b)
   if (!positions.length) return ''
   let result = ''

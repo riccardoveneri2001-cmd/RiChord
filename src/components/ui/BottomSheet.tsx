@@ -29,12 +29,12 @@ export function BottomSheet({ open, onClose, children }: BottomSheetProps) {
     const el = sheetRef.current
     if (!el) return
 
-    function onTouchStart(e: TouchEvent) {
+    const onTouchStart = (e: TouchEvent) => {
       startY.current = e.touches[0].clientY
       currentY.current = 0
     }
 
-    function onTouchMove(e: TouchEvent) {
+    const onTouchMove = (e: TouchEvent) => {
       const dy = e.touches[0].clientY - startY.current
       if (dy > 0) {
         currentY.current = dy
@@ -43,7 +43,7 @@ export function BottomSheet({ open, onClose, children }: BottomSheetProps) {
       }
     }
 
-    function onTouchEnd() {
+    const onTouchEnd = () => {
       if (currentY.current > 100) {
         onClose()
       } else {

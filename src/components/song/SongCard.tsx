@@ -34,7 +34,7 @@ export function SongCard({ song, onDelete }: SongCardProps) {
     const el = cardRef.current
     if (!el) return
 
-    function onStart(e: TouchEvent) {
+    const onStart = (e: TouchEvent) => {
       startX.current  = e.touches[0].clientX
       startY.current  = e.touches[0].clientY
       startDx.current = dxRef.current
@@ -43,7 +43,7 @@ export function SongCard({ song, onDelete }: SongCardProps) {
       el.style.transition = 'none'
     }
 
-    function onMove(e: TouchEvent) {
+    const onMove = (e: TouchEvent) => {
       const dx2 = e.touches[0].clientX - startX.current
       const dy2 = e.touches[0].clientY - startY.current
 
@@ -60,7 +60,7 @@ export function SongCard({ song, onDelete }: SongCardProps) {
       el.style.transform = `translateX(${next}px)`
     }
 
-    function onEnd() {
+    const onEnd = () => {
       const snap = dxRef.current < -DELETE_W / 2 ? -DELETE_W : 0
       dxRef.current = snap
       el.style.transition = 'transform 0.25s ease-out'

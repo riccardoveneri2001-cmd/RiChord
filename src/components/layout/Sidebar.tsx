@@ -18,7 +18,7 @@ export function Sidebar() {
   return (
     <aside className="hidden md:flex flex-col w-56 h-screen bg-white dark:bg-night-surface border-r border-border-light dark:border-border-dark fixed left-0 top-0 z-30">
       <div className="flex items-center justify-between px-5 py-4 border-b border-border-light dark:border-border-dark">
-        <Logo size="md" />
+        <Logo size="sm" />
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
