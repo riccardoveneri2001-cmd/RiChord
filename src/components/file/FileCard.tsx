@@ -1,3 +1,4 @@
+import { ImageViewer } from './ImageViewer'
 import type { Song } from '../../store/useLibraryStore'
 
 interface FileCardProps {
@@ -12,15 +13,7 @@ export function FileCard({ song }: FileCardProps) {
   )
 
   if (song.type === 'image') {
-    return (
-      <div style={{ background: '#FFFFFF', borderRadius: 12, border: '0.5px solid #E0DED8', overflow: 'hidden' }}>
-        <img
-          src={song.file_url}
-          alt={song.title}
-          style={{ width: '100%', objectFit: 'contain', maxHeight: '70vh', display: 'block' }}
-        />
-      </div>
-    )
+    return <ImageViewer src={song.file_url} alt={song.title} />
   }
 
   // PDF: show iframe directly, no intermediate preview
