@@ -82,11 +82,11 @@ export function SetlistsPage() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 32px', textAlign: 'center' }}>
           <div style={{
             width: 72, height: 72, borderRadius: 20,
-            background: '#EDE9FE',
+            background: '#E0F0FA',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             marginBottom: 20,
           }}>
-            <IconList size={32} style={{ color: '#5B21B6' }} />
+            <IconList size={32} style={{ color: '#2176AE' }} />
           </div>
           <p style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 600, color: '#1C2333' }}>
             Nessuna setlist
@@ -99,7 +99,7 @@ export function SetlistsPage() {
             style={{
               display: 'flex', alignItems: 'center', gap: 7,
               padding: '12px 22px', borderRadius: 12, border: 'none',
-              background: '#5B21B6', color: '#FFFFFF',
+              background: '#2176AE', color: '#FFFFFF',
               fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
             }}
           >
@@ -127,10 +127,10 @@ export function SetlistsPage() {
         style={{
           position: 'fixed', bottom: 88, right: 20, zIndex: 20,
           width: 52, height: 52, borderRadius: '50%',
-          background: '#5B21B6', border: 'none',
+          background: '#2176AE', border: 'none',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer',
-          boxShadow: '0 4px 16px rgba(91,33,182,0.35)',
+          boxShadow: '0 4px 16px rgba(33,118,174,0.35)',
         }}
       >
         <IconPlus size={22} style={{ color: '#FFFFFF' }} />
@@ -196,7 +196,7 @@ export function SetlistsPage() {
               disabled={!name.trim() || saving}
               style={{
                 width: '100%', padding: 14, borderRadius: 12, border: 'none',
-                background: !name.trim() || saving ? '#C8CDD8' : '#5B21B6',
+                background: !name.trim() || saving ? '#C8CDD8' : '#2176AE',
                 color: '#FFFFFF', fontSize: 16, fontWeight: 600,
                 cursor: !name.trim() || saving ? 'not-allowed' : 'pointer',
                 fontFamily: 'inherit', marginTop: 4,
