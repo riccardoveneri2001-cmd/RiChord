@@ -91,7 +91,7 @@ export function SongEditorPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { getSong, addSong, updateSong, getAllTags } = useLibraryStore()
-  const isNew = id === 'new'
+  const isNew = !id || id === 'new'
   const existing = isNew ? null : getSong(id!)
 
   const [step, setStep]             = useState<Step>(1)

@@ -101,7 +101,9 @@ create policy "Public read of share links"
 
 -- User profiles policies
 create policy "Users can manage their own profile"
-  on user_profiles for all using (auth.uid() = user_id);
+  on user_profiles for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 -- Storage bucket for song files
 insert into storage.buckets (id, name, public)

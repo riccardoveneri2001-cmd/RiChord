@@ -70,12 +70,12 @@ export default function App() {
           .select('onboarding_done')
           .eq('user_id', session.user.id)
           .single()
-          .then(({ data }) => {
-            if (!data?.onboarding_done) {
-              startTour()
-            } else {
-              setDone(true)
+          .then(({ data, error }) => {
+            if (error && error.code !== 'PGRST116') {
+              console.error('user_profiles fetch error:', error)
             }
+            if (!data?.onboarding_done) startTour()
+            else setDone(true)
           })
       }
     })
