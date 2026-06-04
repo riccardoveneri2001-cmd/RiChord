@@ -9,6 +9,7 @@ import { useLibraryStore } from '../store/useLibraryStore'
 import { useTranspose } from '../hooks/useTranspose'
 import { ChordProRenderer } from '../components/song/ChordProRenderer'
 import { ShareModal } from '../components/share/ShareModal'
+import { BottomSheet } from '../components/ui/BottomSheet'
 import { ConfirmModal } from '../components/ui/Modal'
 import toast from 'react-hot-toast'
 
@@ -55,6 +56,7 @@ export function SongViewPage() {
 
   const [uiHidden,   setUiHidden]   = useState(false)
   const [menuOpen,   setMenuOpen]   = useState(false)
+  const [sizeOpen,   setSizeOpen]   = useState(false)
   const [shareOpen,  setShareOpen]  = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [lyricSize,  setLyricSize]  = useState<number>(() => {
@@ -90,18 +92,6 @@ export function SongViewPage() {
     return () => clearTimeout(t)
   }, [])
 
-  // Close menu on next outside click
-  useEffect(() => {
-    if (!menuOpen) return
-    const close = () => setMenuOpen(false)
-    const t = setTimeout(() => {
-      document.addEventListener('click', close, { capture: true, once: true })
-    }, 0)
-    return () => {
-      clearTimeout(t)
-      document.removeEventListener('click', close, { capture: true })
-    }
-  }, [menuOpen])
 
   // Current displayed key after transposition
   const currentKey = useMemo(() => {
@@ -200,6 +190,14 @@ export function SongViewPage() {
   return (
     <div>
 
+      {/* Backdrop — closes menu when tapping outside the dropdown */}
+      {menuOpen && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 9 }}
+          onClick={() => setMenuOpen(false)}
+        />
+      )}
+
       {/* ── Sticky header group ─────────────────────────────────────────── */}
       <div style={{ position: 'sticky', top: 0, zIndex: 10 }}>
 
@@ -263,7 +261,7 @@ export function SongViewPage() {
             <MenuRow
               icon={<IconTextSize size={16} style={{ color: '#2176AE' }} />}
               label="Dimensione testo"
-              onClick={() => { setLyricSize((s) => s >= 22 ? 14 : s + 4); setMenuOpen(false) }}
+              onClick={() => { setMenuOpen(false); setSizeOpen(true) }}
             />
             {semitones !== 0 && (
               <MenuRow
@@ -323,6 +321,31 @@ export function SongViewPage() {
 
       {/* ── Modals ───────────────────────────────────────────────────────── */}
       <ShareModal open={shareOpen} onClose={() => setShareOpen(false)} type="song" resourceId={id!} />
+
+      <BottomSheet open={sizeOpen} onClose={() => setSizeOpen(false)}>
+        <div style={{ padding: '0 16px 32px' }}>
+          <p style={{ textAlign: 'center', margin: '0 0 16px', fontSize: 15, fontWeight: 600, color: '#1C2333' }}>
+            Dimensione testo
+          </p>
+          {([['Piccolo', 14], ['Medio', 17], ['Grande', 22]] as const).map(([label, size]) => (
+            <button
+              key={label}
+              onClick={() => { setLyricSize(size); setSizeOpen(false) }}
+              style={{
+                width: '100%', padding: '14px 16px', marginBottom: 8,
+                borderRadius: 12, border: `1.5px solid ${lyricSize === size ? '#2176AE' : '#E0DED8'}`,
+                background: lyricSize === size ? '#E0F0FA' : '#FFFFFF',
+                color: lyricSize === size ? '#2176AE' : '#1C2333',
+                fontSize: 15, fontWeight: lyricSize === size ? 600 : 400,
+                cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+              }}
+            >
+              {label}
+              <span style={{ float: 'right', fontSize: 13, opacity: 0.5 }}>{size}px</span>
+            </button>
+          ))}
+        </div>
+      </BottomSheet>
 
       <ConfirmModal
         open={deleteOpen}

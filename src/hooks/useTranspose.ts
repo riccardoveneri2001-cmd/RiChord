@@ -20,7 +20,11 @@ export function useTranspose(initialContent: string, _initialKey: string | null)
   const reset = useCallback(() => setSemitones(0), [])
 
   const toggleNotation = useCallback(() => {
-    setNotation((n) => (n === 'italian' ? 'english' : 'italian'))
+    setNotation((n) => {
+      const next = n === 'italian' ? 'english' : 'italian'
+      localStorage.setItem('notation-pref', next)
+      return next
+    })
   }, [])
 
   return {
