@@ -14,8 +14,8 @@ export default defineConfig({
         name: 'RiChord',
         short_name: 'RiChord',
         description: 'La tua libreria musicale ChordPro sempre pronta',
-        theme_color: '#1E6FBF',
-        background_color: '#0D1B2E',
+        theme_color: '#2176AE',
+        background_color: '#F5F4F1',
         display: 'standalone',
         orientation: 'portrait',
         icons: [

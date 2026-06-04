@@ -70,20 +70,6 @@ function editableToChordPro(
   return [...header, ...(header.length ? [''] : []), ...body].join('\n')
 }
 
-function buildChordRow(_text: string, chords: Record<number, string>): string {
-  const positions = Object.keys(chords).map(Number).sort((a, b) => a - b)
-  if (!positions.length) return ''
-  let result = ''
-  let printPos = 0
-  for (const textPos of positions) {
-    const chord = chords[textPos]
-    const targetPos = Math.max(textPos, printPos)
-    result += ' '.repeat(targetPos - printPos)
-    result += chord
-    printPos = targetPos + chord.length
-  }
-  return result
-}
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
@@ -475,42 +461,42 @@ function EditorLineRow({ line, onTap }: {
   onTap: (charPos: number) => void
 }) {
   const { text, chords } = line
-  const chordRow = buildChordRow(text, chords)
-
   if (!text.trim()) return <div style={{ height: 14 }} />
-
-  // Split into word + whitespace tokens preserving positions
-  const tokens: { text: string; start: number; isWord: boolean }[] = []
-  const re = /\S+|\s+/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(text)) !== null) {
-    tokens.push({ text: m[0], start: m.index, isWord: /\S/.test(m[0]) })
-  }
-
+  const hasChords = Object.keys(chords).length > 0
   return (
-    <div style={{ marginBottom: 10 }}>
-      {chordRow && (
-        <div style={{ fontFamily: 'monospace', fontSize: 13, color: '#2176AE', fontWeight: 700, whiteSpace: 'pre', lineHeight: 1.4 }}>
-          {chordRow}
-        </div>
-      )}
-      <div style={{ fontFamily: 'monospace', fontSize: 15, color: '#1C2333', lineHeight: 1.6, whiteSpace: 'pre' }}>
-        {tokens.map((tok) => (
-          <span
-            key={tok.start}
-            onClick={() => tok.isWord && onTap(tok.start)}
-            style={{
-              cursor: tok.isWord ? 'pointer' : 'default',
-              background: tok.isWord && chords[tok.start] !== undefined
-                ? 'rgba(33,118,174,0.12)'
-                : 'transparent',
-              borderRadius: 3,
-              display: 'inline',
-            }}
-          >
-            {tok.text}
-          </span>
-        ))}
+    <div style={{ marginBottom: 10, overflowX: 'auto' }}>
+      <div style={{ display: 'inline-flex', alignItems: 'flex-end', fontFamily: 'monospace' }}>
+        {Array.from(text).map((char, i) => {
+          const chord = chords[i]
+          const isSpace = char === ' ' || char === '\t'
+          return (
+            <div
+              key={i}
+              onClick={() => !isSpace && onTap(i)}
+              style={{
+                display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-start',
+                cursor: isSpace ? 'default' : 'pointer',
+                minWidth: chord ? `${chord.length}ch` : undefined,
+              }}
+            >
+              <span style={{
+                fontSize: 13, fontWeight: 700, color: '#2176AE',
+                whiteSpace: 'pre', lineHeight: 1.4,
+                minHeight: hasChords ? '1.4em' : 0,
+                display: hasChords ? 'block' : 'none',
+              }}>
+                {chord ?? ''}
+              </span>
+              <span style={{
+                fontSize: 15, color: '#1C2333', whiteSpace: 'pre', lineHeight: 1.6,
+                background: chord ? 'rgba(33,118,174,0.12)' : 'transparent',
+                borderRadius: 2,
+              }}>
+                {char}
+              </span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

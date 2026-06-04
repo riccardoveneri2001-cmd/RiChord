@@ -225,58 +225,60 @@ export function SongViewPage() {
               <IconShare size={17} style={{ color: '#1C2333' }} />
             </button>
 
-            {/* Three-dot menu */}
-            <div style={{ position: 'relative' }}>
-              <button
-                onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o) }}
-                style={iconBtnStyle}
-                aria-label="Altro"
-              >
-                <IconDotsVertical size={17} style={{ color: '#1C2333' }} />
-              </button>
-
-              {menuOpen && (
-                <div style={{
-                  position: 'absolute', top: 38, right: 0, zIndex: 30,
-                  background: '#FFFFFF', borderRadius: 12,
-                  border: '0.5px solid #E0DED8',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-                  minWidth: 210, overflow: 'hidden',
-                }}>
-                  <MenuRow
-                    icon={<IconLanguage size={16} style={{ color: '#2176AE' }} />}
-                    label={`Notazione: ${notation === 'italian' ? 'Do Re Mi' : 'A B C'}`}
-                    onClick={() => { toggleNotation(); setMenuOpen(false) }}
-                  />
-                  <MenuRow
-                    icon={<IconTextSize size={16} style={{ color: '#2176AE' }} />}
-                    label="Dimensione testo"
-                    onClick={() => { setLyricSize((s) => s >= 22 ? 14 : s + 4); setMenuOpen(false) }}
-                  />
-                  {semitones !== 0 && (
-                    <MenuRow
-                      icon={<IconDeviceFloppy size={16} style={{ color: '#2176AE' }} />}
-                      label={`Salva come "${currentKey}"`}
-                      onClick={() => { toast.success('Tonalità salvata'); setMenuOpen(false) }}
-                    />
-                  )}
-                  <MenuRow
-                    icon={<IconEdit size={16} style={{ color: '#2176AE' }} />}
-                    label="Modifica brano"
-                    onClick={() => { navigate(`/song/${id}/edit`); setMenuOpen(false) }}
-                  />
-                  <MenuRow
-                    icon={<IconTrash size={16} style={{ color: '#C0392B' }} />}
-                    label="Elimina"
-                    labelColor="#C0392B"
-                    onClick={() => { setDeleteOpen(true); setMenuOpen(false) }}
-                    last
-                  />
-                </div>
-              )}
-            </div>
+            {/* Three-dot menu button */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setMenuOpen((o) => !o) }}
+              style={iconBtnStyle}
+              aria-label="Altro"
+            >
+              <IconDotsVertical size={17} style={{ color: '#1C2333' }} />
+            </button>
           </div>
         </div>
+
+        {/* Dropdown — fuori dall'overflow:hidden, absolute nel container sticky */}
+        {menuOpen && (
+          <div
+            style={{
+              position: 'absolute', top: 52, right: 16, zIndex: 100,
+              background: '#FFFFFF', borderRadius: 12,
+              border: '0.5px solid #E0DED8',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+              minWidth: 220, overflow: 'hidden',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MenuRow
+              icon={<IconLanguage size={16} style={{ color: '#2176AE' }} />}
+              label={`Notazione: ${notation === 'italian' ? 'Do Re Mi' : 'A B C'}`}
+              onClick={() => { toggleNotation(); setMenuOpen(false) }}
+            />
+            <MenuRow
+              icon={<IconTextSize size={16} style={{ color: '#2176AE' }} />}
+              label="Dimensione testo"
+              onClick={() => { setLyricSize((s) => s >= 22 ? 14 : s + 4); setMenuOpen(false) }}
+            />
+            {semitones !== 0 && (
+              <MenuRow
+                icon={<IconDeviceFloppy size={16} style={{ color: '#2176AE' }} />}
+                label={`Salva come "${currentKey}"`}
+                onClick={() => { toast.success('Tonalità salvata'); setMenuOpen(false) }}
+              />
+            )}
+            <MenuRow
+              icon={<IconEdit size={16} style={{ color: '#2176AE' }} />}
+              label="Modifica brano"
+              onClick={() => { navigate(`/song/${id}/edit`); setMenuOpen(false) }}
+            />
+            <MenuRow
+              icon={<IconTrash size={16} style={{ color: '#C0392B' }} />}
+              label="Elimina"
+              labelColor="#C0392B"
+              onClick={() => { setDeleteOpen(true); setMenuOpen(false) }}
+              last
+            />
+          </div>
+        )}
 
         {/* Transposition bar */}
         <div style={uiHidden ? headerCollapsed : headerShown}>
