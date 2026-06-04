@@ -79,3 +79,11 @@ body.ui-hidden nav.bottom-nav {
   opacity: 0;
   pointer-events: none;
 }
+
+/* All interactive elements: pointer cursor, no accidental text selection */
+button, a, label, [role="button"] {
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
