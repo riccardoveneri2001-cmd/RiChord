@@ -2,7 +2,7 @@ import { CSSProperties, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { IconArrowLeft, IconDeviceFloppy, IconChevronRight } from '@tabler/icons-react'
 import { useLibraryStore } from '../store/useLibraryStore'
-import { useAuthStore } from '../store/useAuthStore'
+import { supabase } from '../lib/supabase'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ChordSelector } from '../components/song/ChordSelector'
 import { ALL_KEYS_IT } from '../lib/transpose'
@@ -91,7 +91,6 @@ export function SongEditorPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { getSong, addSong, updateSong, getAllTags } = useLibraryStore()
-  const user = useAuthStore((s) => s.user)
   const isNew = id === 'new'
   const existing = isNew ? null : getSong(id!)
 
@@ -126,13 +125,14 @@ export function SongEditorPage() {
 
   async function performSave(): Promise<{ ok: boolean; newId?: string }> {
     if (!title.trim()) { toast.error('Il titolo è obbligatorio'); return { ok: false } }
-    if (!user) return { ok: false }
     setSaving(true)
-    const data = {
-      title: title.trim(), artist, content: getFinalContent(),
-      key, tags, notes: existing?.notes ?? '', type: 'chordpro' as const,
-    }
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { toast.error('Sessione scaduta, effettua di nuovo il login'); return { ok: false } }
+      const data = {
+        title: title.trim(), artist, content: getFinalContent(),
+        key, tags, notes: existing?.notes ?? '', type: 'chordpro' as const,
+      }
       if (isNew) {
         const song = await addSong(user.id, data)
         if (song) { setIsDirty(false); toast.success('Brano salvato'); return { ok: true, newId: song.id } }
