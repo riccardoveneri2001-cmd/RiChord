@@ -10,6 +10,7 @@ import { useOnboardingStore } from './store/useOnboardingStore'
 import { useOfflineSync } from './hooks/useOfflineSync'
 import { startKeepalive } from './lib/keepalive'
 import { AppLayout } from './components/layout/AppLayout'
+import { PullToRefresh } from './components/ui/PullToRefresh'
 import { LoginPage } from './pages/LoginPage'
 import { LibraryPage } from './pages/LibraryPage'
 import { SongEditorPage } from './pages/SongEditorPage'
@@ -97,6 +98,7 @@ export default function App() {
 
   return (
     <div className={theme}>
+      <PullToRefresh>
       <BrowserRouter>
         <AppInit />
         <Routes>
@@ -125,6 +127,7 @@ export default function App() {
           </Route>
         </Routes>
       </BrowserRouter>
+      </PullToRefresh>
 
       <Toaster
         position="top-center"
