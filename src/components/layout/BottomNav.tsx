@@ -11,7 +11,7 @@ const NAV_ITEMS = [
 export function BottomNav() {
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-30 bg-surface"
+      className="bottom-nav fixed bottom-0 left-0 right-0 z-30 bg-surface"
       style={{ borderTop: '0.5px solid #E0DED8', paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
     >
       <div className="flex pt-2">

@@ -73,6 +73,13 @@ export function SongViewPage() {
     sessionStorage.setItem(LYRIC_SIZE_KEY, String(lyricSize))
   }, [lyricSize])
 
+  // Sync bottom-nav visibility with uiHidden
+  useEffect(() => {
+    if (uiHidden) document.body.classList.add('ui-hidden')
+    else document.body.classList.remove('ui-hidden')
+    return () => document.body.classList.remove('ui-hidden')
+  }, [uiHidden])
+
   // First-time "tap to hide" hint
   useEffect(() => {
     if (localStorage.getItem(HIDE_HINT_KEY)) return

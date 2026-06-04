@@ -70,3 +70,12 @@ select {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+nav.bottom-nav {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+body.ui-hidden nav.bottom-nav {
+  transform: translateY(100%);
+  opacity: 0;
+  pointer-events: none;
+}
