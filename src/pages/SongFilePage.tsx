@@ -67,10 +67,14 @@ export function SongFilePage() {
         </div>
       )}
 
-      {/* File content */}
-      <div style={{ padding: '12px 16px' }}>
+      {/* File content — no padding for PDF so iframe fills the width */}
+      {song.type === 'pdf' ? (
         <FileCard song={song} />
-      </div>
+      ) : (
+        <div style={{ padding: '12px 16px' }}>
+          <FileCard song={song} />
+        </div>
+      )}
     </div>
   )
 }
