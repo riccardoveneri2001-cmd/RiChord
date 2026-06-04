@@ -61,62 +61,59 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  if (phase === 'idle') return <>{children}</>
-
-  // Indicator Y: -40px (hidden above fold) → +18px (fully visible)
-  const indicatorY = -40 + (pullY / MAX_PULL) * 58
-  const progress   = Math.min(pullY / THRESHOLD, 1)
-  const ready      = pullY >= THRESHOLD
+  const indicatorY  = -40 + (pullY / MAX_PULL) * 58
+  const progress    = Math.min(pullY / THRESHOLD, 1)
+  const ready       = pullY >= THRESHOLD
   const isReleasing = phase === 'releasing' || phase === 'refreshing'
 
   return (
     <>
-      <div style={{
-        position: 'fixed', top: 0, left: 0, right: 0,
-        zIndex: 9999, display: 'flex', justifyContent: 'center',
-        transform: `translateY(${indicatorY}px)`,
-        transition: isReleasing ? 'transform 0.25s ease' : 'none',
-        pointerEvents: 'none',
-      }}>
+      {/* Indicator — always a sibling of children, never a wrapper */}
+      {phase !== 'idle' && (
         <div style={{
-          width: 36, height: 36, borderRadius: '50%',
-          background: '#FFFFFF',
-          border: '0.5px solid #E0DED8',
-          boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          position: 'fixed', top: 0, left: 0, right: 0,
+          zIndex: 9999, display: 'flex', justifyContent: 'center',
+          transform: `translateY(${indicatorY}px)`,
+          transition: isReleasing ? 'transform 0.25s ease' : 'none',
+          pointerEvents: 'none',
         }}>
-          {phase === 'refreshing' ? (
-            <div style={{
-              width: 18, height: 18,
-              border: '2px solid #E0F0FA',
-              borderTopColor: '#2176AE',
-              borderRadius: '50%',
-              animation: 'spin 0.7s linear infinite',
-            }} />
-          ) : (
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-              {/* Track */}
-              <circle cx="10" cy="10" r="8" stroke="#E0F0FA" strokeWidth="2" />
-              {/* Progress arc */}
-              <circle
-                cx="10" cy="10" r="8"
-                stroke="#2176AE" strokeWidth="2" strokeLinecap="round"
-                strokeDasharray={C}
-                strokeDashoffset={C * (1 - progress)}
-                transform="rotate(-90 10 10)"
-              />
-              {/* Arrow: down while pulling, up when ready */}
-              <path
-                d={ready
-                  ? 'M10 14 L10 6 M7 9 L10 6 L13 9'
-                  : 'M10 6 L10 14 M7 11 L10 14 L13 11'}
-                stroke="#2176AE" strokeWidth="1.6"
-                strokeLinecap="round" strokeLinejoin="round"
-              />
-            </svg>
-          )}
+          <div style={{
+            width: 36, height: 36, borderRadius: '50%',
+            background: '#FFFFFF',
+            border: '0.5px solid #E0DED8',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            {phase === 'refreshing' ? (
+              <div style={{
+                width: 18, height: 18,
+                border: '2px solid #E0F0FA',
+                borderTopColor: '#2176AE',
+                borderRadius: '50%',
+                animation: 'spin 0.7s linear infinite',
+              }} />
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <circle cx="10" cy="10" r="8" stroke="#E0F0FA" strokeWidth="2" />
+                <circle
+                  cx="10" cy="10" r="8"
+                  stroke="#2176AE" strokeWidth="2" strokeLinecap="round"
+                  strokeDasharray={C}
+                  strokeDashoffset={C * (1 - progress)}
+                  transform="rotate(-90 10 10)"
+                />
+                <path
+                  d={ready
+                    ? 'M10 14 L10 6 M7 9 L10 6 L13 9'
+                    : 'M10 6 L10 14 M7 11 L10 14 L13 11'}
+                  stroke="#2176AE" strokeWidth="1.6"
+                  strokeLinecap="round" strokeLinejoin="round"
+                />
+              </svg>
+            )}
+          </div>
         </div>
-      </div>
+      )}
       {children}
     </>
   )
