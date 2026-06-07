@@ -5,6 +5,7 @@ import { useLibraryStore } from '../store/useLibraryStore'
 import { FileCard } from '../components/file/FileCard'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { usePullToRefreshBlock } from '../hooks/usePullToRefreshBlock'
+import { runOcr } from '../lib/ocr'
 import toast from 'react-hot-toast'
 
 // ── Setlist navigation state ──────────────────────────────────────────────────
@@ -37,6 +38,7 @@ export function SongFilePage() {
   const [uiHidden,    setUiHidden]    = useState(false)
   const [menuOpen,    setMenuOpen]    = useState(false)
   const [ocrLoading,  setOcrLoading]  = useState(false)
+  const [ocrStatus,   setOcrStatus]   = useState('')
   const [ocrText,     setOcrText]     = useState('')
   const [ocrOpen,     setOcrOpen]     = useState(false)
 
@@ -77,25 +79,23 @@ export function SongFilePage() {
   // OCR
   async function handleOcr() {
     if (!song || !song.file_url) return
-    if (song.type === 'pdf') {
-      toast('OCR non supportato per i PDF.\nImporta una screenshot come immagine.', { duration: 4000 })
-      setMenuOpen(false)
-      return
-    }
     setMenuOpen(false)
     setOcrLoading(true)
-    const fileUrl = song.file_url
+    setOcrStatus('Avvio…')
     try {
-      const { createWorker } = await import('tesseract.js')
-      const worker = await createWorker('ita+eng')
-      const { data: { text } } = await worker.recognize(fileUrl)
-      await worker.terminate()
-      setOcrText(text.trim())
+      const text = await runOcr(
+        song.file_url,
+        song.type === 'pdf' ? 'pdf' : 'image',
+        setOcrStatus,
+      )
+      setOcrText(text)
       setOcrOpen(true)
-    } catch {
+    } catch (err) {
+      console.error(err)
       toast.error('Errore durante il riconoscimento del testo')
     } finally {
       setOcrLoading(false)
+      setOcrStatus('')
     }
   }
 
@@ -155,7 +155,7 @@ export function SongFilePage() {
 
             {/* Three-dot button */}
             <button
-              onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o) }}
+              onClick={(e) => { if (ocrLoading) return; e.stopPropagation(); setMenuOpen(o => !o) }}
               style={iconBtn}
               aria-label="Altro"
             >
@@ -237,6 +237,17 @@ export function SongFilePage() {
           </div>
         )}
       </div>
+
+      {/* OCR progress banner */}
+      {ocrLoading && ocrStatus && (
+        <div style={{
+          background: '#E0F0FA', padding: '8px 16px',
+          display: 'flex', alignItems: 'center', gap: 10,
+        }}>
+          <div style={{ width: 14, height: 14, border: '2px solid #B0D4EC', borderTopColor: '#2176AE', borderRadius: '50%', animation: 'spin 0.7s linear infinite', flexShrink: 0 }} />
+          <span style={{ fontSize: 13, color: '#2176AE', fontWeight: 500 }}>{ocrStatus}</span>
+        </div>
+      )}
 
       {/* Tags */}
       {!uiHidden && (song.tags ?? []).length > 0 && (
