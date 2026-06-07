@@ -153,48 +153,47 @@ export function SongFilePage() {
               )}
             </div>
 
-            {/* Three-dot menu (OCR) */}
-            <div style={{ position: 'relative' }}>
-              <button
-                onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o) }}
-                style={iconBtn}
-                aria-label="Altro"
-              >
-                {ocrLoading
-                  ? <div style={{ width: 16, height: 16, border: '2px solid #E0F0FA', borderTopColor: '#2176AE', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
-                  : <IconDotsVertical size={17} style={{ color: '#1C2333' }} />
-                }
-              </button>
-
-              {menuOpen && (
-                <div
-                  style={{
-                    position: 'absolute', top: 38, right: 0, zIndex: 100,
-                    background: '#FFFFFF', borderRadius: 12,
-                    border: '0.5px solid #E0DED8',
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-                    minWidth: 210, overflow: 'hidden',
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <button
-                    onClick={handleOcr}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10,
-                      width: '100%', padding: '12px 14px',
-                      background: 'none', border: 'none',
-                      cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
-                      minHeight: 44,
-                    }}
-                  >
-                    <IconScan size={16} style={{ color: '#2176AE' }} />
-                    <span style={{ fontSize: 14, color: '#1C2333' }}>Converti in ChordPro</span>
-                  </button>
-                </div>
-              )}
-            </div>
+            {/* Three-dot button */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o) }}
+              style={iconBtn}
+              aria-label="Altro"
+            >
+              {ocrLoading
+                ? <div style={{ width: 16, height: 16, border: '2px solid #E0F0FA', borderTopColor: '#2176AE', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} />
+                : <IconDotsVertical size={17} style={{ color: '#1C2333' }} />
+              }
+            </button>
           </div>
         </div>
+
+        {/* Dropdown — outside overflow:hidden, absolute inside sticky container */}
+        {menuOpen && (
+          <div
+            style={{
+              position: 'absolute', top: 52, right: 16, zIndex: 100,
+              background: '#FFFFFF', borderRadius: 12,
+              border: '0.5px solid #E0DED8',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+              minWidth: 210, overflow: 'hidden',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={handleOcr}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                width: '100%', padding: '12px 14px',
+                background: 'none', border: 'none',
+                cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+                minHeight: 44,
+              }}
+            >
+              <IconScan size={16} style={{ color: '#2176AE' }} />
+              <span style={{ fontSize: 14, color: '#1C2333' }}>Converti in ChordPro</span>
+            </button>
+          </div>
+        )}
 
         {/* Setlist navigation bar */}
         {setlistCtx && (
