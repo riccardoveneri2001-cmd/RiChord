@@ -1,11 +1,12 @@
 import { type CSSProperties, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { IconArrowLeft, IconDeviceFloppy, IconChevronRight } from '@tabler/icons-react'
 import { useLibraryStore } from '../store/useLibraryStore'
 import { supabase } from '../lib/supabase'
 import { BottomSheet } from '../components/ui/BottomSheet'
 import { ChordSelector } from '../components/song/ChordSelector'
 import { ALL_KEYS_IT } from '../lib/transpose'
+import { usePullToRefreshBlock } from '../hooks/usePullToRefreshBlock'
 import toast from 'react-hot-toast'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -76,9 +77,11 @@ function editableToChordPro(
 export function SongEditorPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const location = useLocation()
   const { getSong, addSong, updateSong, getAllTags } = useLibraryStore()
   const isNew = !id || id === 'new'
   const existing = isNew ? null : getSong(id!)
+  usePullToRefreshBlock()
 
   const [step, setStep]             = useState<Step>(1)
   const [activeChip, setActiveChip] = useState<ActiveChip>(null)
@@ -92,8 +95,9 @@ export function SongEditorPage() {
   const [key, setKey]       = useState(existing?.key ?? '')
   const [tags, setTags]     = useState<string[]>(existing?.tags ?? [])
 
-  // Step 1: raw ChordPro text
-  const [content, setContent] = useState(existing?.content ?? '')
+  // Step 1: raw ChordPro text (may be pre-filled via OCR from location.state)
+  const ocrContent = (location.state as { ocrContent?: string } | null)?.ocrContent ?? ''
+  const [content, setContent] = useState(existing?.content ?? ocrContent)
 
   // Step 2: parsed lines + selection
   const [editorLines, setEditorLines]   = useState<EditorLine[]>([])
@@ -403,6 +407,10 @@ export function SongEditorPage() {
               <EditorLineRow
                 key={li}
                 line={line}
+                lineIndex={li}
+                activeLine={activeLine}
+                activePos={activePos}
+                selectorOpen={selectorOpen}
                 onTap={(pos) => openSelector(li, pos)}
               />
             ))}
@@ -456,19 +464,24 @@ export function SongEditorPage() {
 
 // ── EditorLineRow ──────────────────────────────────────────────────────────────
 
-function EditorLineRow({ line, onTap }: {
+function EditorLineRow({ line, lineIndex, activeLine, activePos, selectorOpen, onTap }: {
   line: EditorLine
+  lineIndex: number
+  activeLine: number | null
+  activePos: number | null
+  selectorOpen: boolean
   onTap: (charPos: number) => void
 }) {
   const { text, chords } = line
   if (!text.trim()) return <div style={{ height: 14 }} />
   const hasChords = Object.keys(chords).length > 0
   return (
-    <div style={{ marginBottom: 10, overflowX: 'auto' }}>
+    <div style={{ marginBottom: 12, overflowX: 'auto' }}>
       <div style={{ display: 'inline-flex', alignItems: 'flex-end', fontFamily: 'monospace' }}>
         {Array.from(text).map((char, i) => {
           const chord = chords[i]
           const isSpace = char === ' ' || char === '\t'
+          const isActive = selectorOpen && lineIndex === activeLine && i === activePos
           return (
             <div
               key={i}
@@ -488,9 +501,11 @@ function EditorLineRow({ line, onTap }: {
                 {chord ?? ''}
               </span>
               <span style={{
-                fontSize: 15, color: '#1C2333', whiteSpace: 'pre', lineHeight: 1.6,
-                background: chord ? 'rgba(33,118,174,0.12)' : 'transparent',
-                borderRadius: 2,
+                fontSize: 20, whiteSpace: 'pre', lineHeight: 1.5,
+                color: isActive ? '#FFFFFF' : '#1C2333',
+                background: isActive ? '#2176AE' : chord ? 'rgba(33,118,174,0.12)' : 'transparent',
+                borderRadius: 3,
+                padding: isActive ? '0 2px' : undefined,
               }}>
                 {char}
               </span>

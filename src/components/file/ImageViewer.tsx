@@ -3,13 +3,16 @@ import { useEffect, useRef, useState } from 'react'
 interface Props {
   src: string
   alt: string
+  onTap?: () => void
 }
 
-export function ImageViewer({ src, alt }: Props) {
+export function ImageViewer({ src, alt, onTap }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const transformRef = useRef({ scale: 1, x: 0, y: 0 })
   const [display, setDisplay] = useState({ scale: 1, x: 0, y: 0 })
   const lastTapRef = useRef(0)
+  const onTapRef = useRef(onTap)
+  useEffect(() => { onTapRef.current = onTap }, [onTap])
 
   // Disable viewport zoom while this component is mounted
   useEffect(() => {
@@ -40,27 +43,34 @@ export function ImageViewer({ src, alt }: Props) {
     let initX = 0, initY = 0
     let panStartX = 0, panStartY = 0
     let twoFinger = false
+    let isDoubleTap = false
+    let tapStartTime = 0
 
     const onStart = (e: TouchEvent) => {
       e.preventDefault()
       const t = transformRef.current
       if (e.touches.length === 2) {
-        twoFinger = true
-        initDist  = pinchDist(e)
-        initScale = t.scale
-        initX     = t.x
-        initY     = t.y
+        twoFinger  = true
+        isDoubleTap = false
+        initDist   = pinchDist(e)
+        initScale  = t.scale
+        initX      = t.x
+        initY      = t.y
       } else {
         twoFinger  = false
         panStartX  = e.touches[0].clientX
         panStartY  = e.touches[0].clientY
+        tapStartTime = Date.now()
         initX      = t.x
         initY      = t.y
 
         // Double-tap: toggle zoom
         const now = Date.now()
         if (now - lastTapRef.current < 300) {
+          isDoubleTap = true
           apply(t.scale > 1.5 ? { scale: 1, x: 0, y: 0 } : { scale: 2.5, x: 0, y: 0 })
+        } else {
+          isDoubleTap = false
         }
         lastTapRef.current = now
       }
@@ -79,9 +89,19 @@ export function ImageViewer({ src, alt }: Props) {
       }
     }
 
-    const onEnd = () => {
+    const onEnd = (e: TouchEvent) => {
       const t = transformRef.current
       if (t.scale < 1.05) apply({ scale: 1, x: 0, y: 0 })
+
+      // Single tap detection (no movement, not a double-tap, short duration)
+      if (!twoFinger && !isDoubleTap && e.changedTouches.length === 1) {
+        const dx = e.changedTouches[0].clientX - panStartX
+        const dy = e.changedTouches[0].clientY - panStartY
+        const dt = Date.now() - tapStartTime
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10 && dt < 300) {
+          onTapRef.current?.()
+        }
+      }
     }
 
     el.addEventListener('touchstart', onStart, { passive: false })

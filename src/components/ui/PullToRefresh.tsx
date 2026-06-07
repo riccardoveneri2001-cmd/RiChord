@@ -19,6 +19,7 @@ export function PullToRefresh({ children }: { children: React.ReactNode }) {
     let curPull   = 0
 
     function onStart(e: TouchEvent) {
+      if (document.body.classList.contains('ptr-disabled')) return
       if (window.scrollY > 0) return
       startY  = e.touches[0].clientY
       active  = true

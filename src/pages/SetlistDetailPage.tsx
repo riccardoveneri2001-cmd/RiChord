@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
-  IconArrowLeft, IconShare, IconPlayerPlay,
+  IconArrowLeft, IconShare, IconDotsVertical,
   IconGripVertical, IconTrash, IconPlus, IconSearch, IconList,
+  IconDownload,
 } from '@tabler/icons-react'
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd'
 import { useSetlistStore, type SetlistSong } from '../store/useSetlistStore'
-import { useLibraryStore } from '../store/useLibraryStore'
-import { PerformingMode } from '../components/song/PerformingMode'
+import { useLibraryStore, type Song } from '../store/useLibraryStore'
 import { ShareModal } from '../components/share/ShareModal'
 import { BottomSheet } from '../components/ui/BottomSheet'
-import { transposeChordPro } from '../lib/chordpro'
+import { usePullToRefreshBlock } from '../hooks/usePullToRefreshBlock'
+import { downloadSetlistPdf, downloadSetlistZip } from '../lib/export'
+import toast from 'react-hot-toast'
 
 // ── Shared micro-styles ───────────────────────────────────────────────────────
 
@@ -21,6 +23,25 @@ const iconBtn: React.CSSProperties = {
   cursor: 'pointer',
 }
 
+// ── Skeleton row ──────────────────────────────────────────────────────────────
+
+function SkeletonRow() {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      background: '#FFFFFF', borderRadius: 12,
+      border: '0.5px solid #E0DED8', padding: '10px 12px',
+    }}>
+      <div style={{ width: 14, height: 14, borderRadius: 4, background: '#E8E6E1', flexShrink: 0 }} />
+      <div style={{ width: 18, height: 12, borderRadius: 4, background: '#E8E6E1', flexShrink: 0 }} />
+      <div style={{ flex: 1 }}>
+        <div style={{ width: '55%', height: 13, borderRadius: 4, background: '#E8E6E1', marginBottom: 5 }} />
+        <div style={{ width: '35%', height: 10, borderRadius: 4, background: '#F0EEEB' }} />
+      </div>
+    </div>
+  )
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function SetlistDetailPage() {
@@ -29,17 +50,27 @@ export function SetlistDetailPage() {
   const { setlists, fetchSetlistSongs, addSongToSetlist, removeSongFromSetlist, reorderSetlistSongs } = useSetlistStore()
   const { songs } = useLibraryStore()
   const setlist = setlists.find((s) => s.id === id)
+  usePullToRefreshBlock()
 
-  const [setlistSongs,  setSetlistSongs]  = useState<SetlistSong[]>([])
-  const [addOpen,       setAddOpen]       = useState(false)
-  const [shareOpen,     setShareOpen]     = useState(false)
-  const [search,        setSearch]        = useState('')
-  const [performingIdx, setPerformingIdx] = useState<number | null>(null)
-  const [focused,       setFocused]       = useState(false)
+  const [setlistSongs,    setSetlistSongs]    = useState<SetlistSong[]>([])
+  const [loading,         setLoading]         = useState(true)
+  const [addOpen,         setAddOpen]         = useState(false)
+  const [shareOpen,       setShareOpen]       = useState(false)
+  const [menuOpen,        setMenuOpen]        = useState(false)
+  const [search,          setSearch]          = useState('')
+  const [focused,         setFocused]         = useState(false)
+  const [selectedSongIds, setSelectedSongIds] = useState<Set<string>>(new Set())
+  const [addingMultiple,  setAddingMultiple]  = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (id) fetchSetlistSongs(id).then(setSetlistSongs)
+    if (id) {
+      setLoading(true)
+      fetchSetlistSongs(id).then((list) => {
+        setSetlistSongs(list)
+        setLoading(false)
+      })
+    }
   }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Enrich with song data
@@ -48,7 +79,7 @@ export function SetlistDetailPage() {
     song: songs.find((s) => s.id === ss.song_id),
   }))
 
-  // Songs available to add (only chordpro, not already in setlist)
+  // Songs available to add (not already in setlist)
   const alreadyAdded = new Set(setlistSongs.map((ss) => ss.song_id))
   const filteredSongs = songs.filter(
     (s) =>
@@ -56,6 +87,11 @@ export function SetlistDetailPage() {
       (s.title.toLowerCase().includes(search.toLowerCase()) ||
         (s.artist?.toLowerCase() ?? '').includes(search.toLowerCase())),
   )
+
+  // Songs for export (only present chordpro songs)
+  const chordproSongs = enriched
+    .map((e) => e.song)
+    .filter((s): s is Song => s != null && s.type === 'chordpro')
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -68,12 +104,30 @@ export function SetlistDetailPage() {
     await reorderSetlistSongs(id!, items)
   }
 
-  async function handleAddSong(songId: string) {
-    await addSongToSetlist(id!, songId, setlistSongs.length)
-    const updated = await fetchSetlistSongs(id!)
-    setSetlistSongs(updated)
-    setAddOpen(false)
-    setSearch('')
+  function toggleSong(songId: string) {
+    setSelectedSongIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(songId)) next.delete(songId)
+      else next.add(songId)
+      return next
+    })
+  }
+
+  async function handleAddSelected() {
+    if (selectedSongIds.size === 0 || addingMultiple) return
+    setAddingMultiple(true)
+    try {
+      const toAdd = songs.filter((s) => selectedSongIds.has(s.id))
+      let pos = setlistSongs.length
+      for (const song of toAdd) {
+        await addSongToSetlist(id!, song.id, pos++)
+      }
+      const updated = await fetchSetlistSongs(id!)
+      setSetlistSongs(updated)
+    } finally {
+      setAddingMultiple(false)
+    }
+    handleCloseAdd()
   }
 
   async function handleRemove(ssId: string) {
@@ -81,13 +135,35 @@ export function SetlistDetailPage() {
     setSetlistSongs((prev) => prev.filter((s) => s.id !== ssId))
   }
 
-  function openAdd() { setSearch(''); setAddOpen(true) }
+  function openAdd() { setSearch(''); setSelectedSongIds(new Set()); setAddOpen(true) }
+  function handleCloseAdd() { setAddOpen(false); setSearch(''); setSelectedSongIds(new Set()) }
 
-  // Performing mode
-  const currentPerforming = performingIdx !== null ? enriched[performingIdx] : null
-  const currentContent = currentPerforming?.song?.content
-    ? transposeChordPro(currentPerforming.song.content, 0)
-    : ''
+  function handleOpenSong(index: number) {
+    const item = enriched[index]
+    if (!item.song) return
+    navigate(`/song/${item.song.id}`, {
+      state: {
+        setlistId: id!,
+        setlistName: setlist!.name,
+        songIds: setlistSongs.map((s) => s.song_id),
+        currentIndex: index,
+      },
+    })
+  }
+
+  async function handleExportPdf() {
+    setMenuOpen(false)
+    if (chordproSongs.length === 0) { toast('Nessun brano ChordPro da esportare', { duration: 2500 }); return }
+    toast('Generazione PDF…', { duration: 2000 })
+    await downloadSetlistPdf(chordproSongs, setlist!.name)
+  }
+
+  async function handleExportZip() {
+    setMenuOpen(false)
+    if (chordproSongs.length === 0) { toast('Nessun brano ChordPro da esportare', { duration: 2500 }); return }
+    toast('Generazione ZIP…', { duration: 2000 })
+    await downloadSetlistZip(chordproSongs, setlist!.name)
+  }
 
   // ── Not found ─────────────────────────────────────────────────────────────
 
@@ -107,10 +183,21 @@ export function SetlistDetailPage() {
     ? new Date(setlist.event_date + 'T00:00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'long', year: 'numeric' })
     : null
 
+  const addBtnLabel = selectedSongIds.size === 0
+    ? 'Seleziona brani'
+    : selectedSongIds.size === 1
+      ? 'Aggiungi 1 brano'
+      : `Aggiungi ${selectedSongIds.size} brani`
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div style={{ paddingBottom: 100 }}>
+
+      {/* Menu backdrop */}
+      {menuOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9 }} onClick={() => setMenuOpen(false)} />
+      )}
 
       {/* Topbar */}
       <div style={{
@@ -136,21 +223,44 @@ export function SetlistDetailPage() {
           <IconShare size={17} style={{ color: '#1C2333' }} />
         </button>
 
-        {enriched.length > 0 && (
+        {/* Three-dot export menu */}
+        <div style={{ position: 'relative' }}>
           <button
-            onClick={() => setPerformingIdx(0)}
-            style={{
-              height: 34, paddingLeft: 12, paddingRight: 14, borderRadius: 8,
-              border: 'none', background: '#2176AE', color: '#FFFFFF',
-              fontSize: 13, fontWeight: 600, fontFamily: 'inherit',
-              display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
-              cursor: 'pointer',
-            }}
+            onClick={(e) => { e.stopPropagation(); setMenuOpen(o => !o) }}
+            style={iconBtn}
+            aria-label="Altro"
           >
-            <IconPlayerPlay size={14} />
-            Esegui
+            <IconDotsVertical size={17} style={{ color: '#1C2333' }} />
           </button>
-        )}
+
+          {menuOpen && (
+            <div
+              style={{
+                position: 'absolute', top: 38, right: 0, zIndex: 100,
+                background: '#FFFFFF', borderRadius: 12,
+                border: '0.5px solid #E0DED8',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                minWidth: 210, overflow: 'hidden',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={handleExportPdf}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 14px', background: 'none', border: 'none', borderBottom: '0.5px solid #F0EEEB', cursor: 'pointer', fontFamily: 'inherit', minHeight: 44 }}
+              >
+                <IconDownload size={16} style={{ color: '#2176AE' }} />
+                <span style={{ fontSize: 14, color: '#1C2333' }}>Esporta setlist come PDF</span>
+              </button>
+              <button
+                onClick={handleExportZip}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', minHeight: 44 }}
+              >
+                <IconDownload size={16} style={{ color: '#2176AE' }} />
+                <span style={{ fontSize: 14, color: '#1C2333' }}>Esporta setlist come ZIP</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Description */}
@@ -161,14 +271,25 @@ export function SetlistDetailPage() {
       )}
 
       {/* Song count */}
-      <div style={{ padding: '10px 16px 4px' }}>
-        <p style={{ margin: 0, fontSize: 12, fontWeight: 500, color: '#8A94A6', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          {enriched.length} {enriched.length === 1 ? 'brano' : 'brani'}
-        </p>
-      </div>
+      {!loading && (
+        <div style={{ padding: '10px 16px 4px' }}>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 500, color: '#8A94A6', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            {enriched.length} {enriched.length === 1 ? 'brano' : 'brani'}
+          </p>
+        </div>
+      )}
 
-      {/* Empty state */}
-      {enriched.length === 0 && (
+      {/* Skeleton while loading */}
+      {loading && (
+        <div style={{ padding: '8px 16px 0' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)}
+          </div>
+        </div>
+      )}
+
+      {/* Empty state — only after loading completes */}
+      {!loading && enriched.length === 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '48px 32px', textAlign: 'center' }}>
           <div style={{
             width: 64, height: 64, borderRadius: 18, background: '#EDE9FE',
@@ -185,7 +306,7 @@ export function SetlistDetailPage() {
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
               padding: '11px 20px', borderRadius: 12, border: 'none',
-              background: '#5B21B6', color: '#FFFFFF',
+              background: '#2176AE', color: '#FFFFFF',
               fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
             }}
           >
@@ -195,7 +316,7 @@ export function SetlistDetailPage() {
       )}
 
       {/* Draggable list */}
-      {enriched.length > 0 && (
+      {!loading && enriched.length > 0 && (
         <div style={{ padding: '8px 16px 0' }}>
           <DragDropContext onDragEnd={handleDragEnd}>
             <Droppable droppableId="setlist-songs">
@@ -211,7 +332,7 @@ export function SetlistDetailPage() {
                         <div
                           ref={drag.innerRef}
                           {...drag.draggableProps}
-                          onClick={() => item.song && setPerformingIdx(index)}
+                          onClick={() => item.song && handleOpenSong(index)}
                           style={{
                             ...drag.draggableProps.style,
                             display: 'flex', alignItems: 'center', gap: 10,
@@ -220,9 +341,7 @@ export function SetlistDetailPage() {
                             border: '0.5px solid #E0DED8',
                             padding: '10px 12px',
                             cursor: item.song ? 'pointer' : 'default',
-                            boxShadow: snapshot.isDragging
-                              ? '0 8px 24px rgba(0,0,0,0.12)'
-                              : 'none',
+                            boxShadow: snapshot.isDragging ? '0 8px 24px rgba(0,0,0,0.12)' : 'none',
                             transform: snapshot.isDragging
                               ? `${drag.draggableProps.style?.transform} scale(1.02)`
                               : drag.draggableProps.style?.transform,
@@ -315,16 +434,33 @@ export function SetlistDetailPage() {
         </div>
       )}
 
-      {/* Add song BottomSheet */}
-      <BottomSheet open={addOpen} onClose={() => { setAddOpen(false); setSearch('') }}>
+      {/* Add songs BottomSheet — multi-select */}
+      <BottomSheet open={addOpen} onClose={handleCloseAdd}>
         <div style={{ padding: '0 16px 32px' }}>
-          <p style={{
-            textAlign: 'center', margin: '0 0 14px',
-            fontSize: 13, fontWeight: 600, color: '#8A94A6',
-            textTransform: 'uppercase', letterSpacing: '0.04em',
-          }}>
-            Aggiungi brano
-          </p>
+
+          {/* Header: count + add button */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+            <p style={{
+              margin: 0, fontSize: 13, fontWeight: 600, color: '#8A94A6',
+              textTransform: 'uppercase', letterSpacing: '0.04em',
+            }}>
+              Aggiungi brani
+            </p>
+            <button
+              onClick={handleAddSelected}
+              disabled={selectedSongIds.size === 0 || addingMultiple}
+              style={{
+                padding: '7px 14px', borderRadius: 10, border: 'none',
+                background: selectedSongIds.size > 0 ? '#2176AE' : '#C8CDD8',
+                color: '#FFFFFF', fontSize: 13, fontWeight: 600,
+                cursor: selectedSongIds.size > 0 ? 'pointer' : 'not-allowed',
+                fontFamily: 'inherit', transition: 'background 0.15s',
+                minWidth: 120,
+              }}
+            >
+              {addingMultiple ? '…' : addBtnLabel}
+            </button>
+          </div>
 
           {/* Search */}
           <div style={{
@@ -349,7 +485,7 @@ export function SetlistDetailPage() {
             />
           </div>
 
-          {/* Results */}
+          {/* Song list with checkboxes */}
           <div style={{ maxHeight: 320, overflowY: 'auto' }}>
             {filteredSongs.length === 0 ? (
               <p style={{ textAlign: 'center', padding: '24px 0', fontSize: 14, color: '#8A94A6' }}>
@@ -357,24 +493,43 @@ export function SetlistDetailPage() {
               </p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {filteredSongs.map((song) => (
-                  <button
-                    key={song.id}
-                    onClick={() => handleAddSong(song.id)}
-                    style={{
-                      width: '100%', padding: '11px 12px', borderRadius: 10,
-                      background: 'none', border: 'none', textAlign: 'left',
-                      cursor: 'pointer', fontFamily: 'inherit',
-                    }}
-                    onMouseOver={(e) => (e.currentTarget.style.background = '#F5F4F1')}
-                    onMouseOut={(e) => (e.currentTarget.style.background = 'none')}
-                  >
-                    <p style={{ margin: 0, fontSize: 15, fontWeight: 500, color: '#1C2333' }}>{song.title}</p>
-                    {song.artist && (
-                      <p style={{ margin: '1px 0 0', fontSize: 13, color: '#8A94A6' }}>{song.artist}</p>
-                    )}
-                  </button>
-                ))}
+                {filteredSongs.map((song) => {
+                  const checked = selectedSongIds.has(song.id)
+                  return (
+                    <button
+                      key={song.id}
+                      onClick={() => toggleSong(song.id)}
+                      style={{
+                        width: '100%', padding: '10px 12px', borderRadius: 10,
+                        background: checked ? '#F0F7FF' : 'none', border: 'none',
+                        textAlign: 'left', cursor: 'pointer', fontFamily: 'inherit',
+                        display: 'flex', alignItems: 'center', gap: 12,
+                      }}
+                    >
+                      {/* Checkbox */}
+                      <div style={{
+                        width: 20, height: 20, borderRadius: 5, flexShrink: 0,
+                        border: `1.5px solid ${checked ? '#2176AE' : '#C8CDD8'}`,
+                        background: checked ? '#2176AE' : '#FFFFFF',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'background 0.1s, border-color 0.1s',
+                      }}>
+                        {checked && (
+                          <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+                            <path d="M1 4L4 7L10 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </div>
+                      {/* Song info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: 0, fontSize: 15, fontWeight: 500, color: '#1C2333', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.title}</p>
+                        {song.artist && (
+                          <p style={{ margin: '1px 0 0', fontSize: 13, color: '#8A94A6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.artist}</p>
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -383,20 +538,6 @@ export function SetlistDetailPage() {
 
       {/* Share modal */}
       <ShareModal open={shareOpen} onClose={() => setShareOpen(false)} type="setlist" resourceId={id!} />
-
-      {/* Performing mode */}
-      {performingIdx !== null && currentPerforming?.song && (
-        <PerformingMode
-          song={currentPerforming.song}
-          content={currentContent}
-          onClose={() => setPerformingIdx(null)}
-          onNext={performingIdx < enriched.length - 1 ? () => setPerformingIdx((i) => (i ?? 0) + 1) : undefined}
-          onPrev={performingIdx > 0 ? () => setPerformingIdx((i) => (i ?? 0) - 1) : undefined}
-          songIndex={performingIdx}
-          totalSongs={enriched.length}
-          setlistName={setlist.name}
-        />
-      )}
     </div>
   )
 }
